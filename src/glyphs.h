@@ -13,8 +13,9 @@
 // source : https://github.com/dhepper/font8x8/blob/master/font8x8_basic.h
 //
 
-uint32_t glyphs_size = 2 * 177;
+static uint32_t glyphs_size = 2 * 177;
 
+static uint32_t glyphs_size_in_bytes = glyphs_size * sizeof(uint32_t);
 
 
 static uint8_t font8x8[177][8] =
@@ -424,7 +425,7 @@ static size_t numberofMaxRows = 1000;
 static size_t lineMaxLength = 1000;
 static size_t symbols_size = 1000;
 static size_t symbols_size_in_bytes = 1000;
-static size_t glyphs_size_in_bytes = 1000;
+
 static int rightMost;
 static int upMost;
 static float z_max;
@@ -434,7 +435,6 @@ static Row *rows;
 
 inline uint32_t * ComputeGlyphsDataToHighAndLowInt()
 {
-	glyphs_size_in_bytes = glyphs_size*sizeof(int);
 
     uint32_t *glyphs = (uint32_t *)malloc(glyphs_size_in_bytes);
     int k = 0;
