@@ -1,0 +1,18 @@
+
+Texture2D<float4> in_image : register(t0, space0);
+SamplerState in_image_sampler : register(s0, space0);
+
+RWTexture2D<float4> out_image: register(u0, space1);
+
+//uniform float3 teinte;
+
+[numthreads(8, 8, 1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+	float w, h;
+    in_image.GetDimensions(w, h);
+    int2 coord = int2(id.xy);
+    float2 texcoord = (float2(coord)) / float2(w, h);
+    float4 inPixel = in_image.SampleLevel(in_image_sampler, texcoord, 0);
+	out_image[id.xy] =  inPixel ; //float4(teinte.xyz, 1); //in_image[id.xy] *float4(teinte.xyz, 1);  // in_image[id.xy]; // + in_image[id.xy] * float4(0, 1, 0.5, 1);
+}
