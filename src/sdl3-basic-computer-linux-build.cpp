@@ -15,7 +15,7 @@
 #include "glyphs.h"
 
  SDL_GPUComputePipeline* compute_initialize_pipeline;
- SDL_GPUComputePipeline* compute_draw_glyphs_pipeline;
+ SDL_GPUComputePipeline* compute_rasterize_glyphs_pipeline;
  SDL_GPUComputePipeline* compute_combine_images_pipeline;
 
  SDL_GPUTexture* image_texture;
@@ -68,6 +68,9 @@
 
      if (swapchainTexture != NULL)
      {
+
+    	 // first pass initialize texture where we render matrix rain
+    	 //
     	 SDL_GPUStorageTextureReadWriteBinding compute_initialize_textures_bindings[] =
     	 {
     		{
@@ -142,6 +145,8 @@
      }
 
      SDL_SubmitGPUCommandBuffer(cmdbuf);
+
+     // second pass : draw matrix glyphs by rasterization with compute shader
 
      return 0;
  }
@@ -301,6 +306,7 @@ int main() {
 
     write_texture = SDL_CreateGPUTexture(context.device, &write_texture_info);
 
+    // create first compute shader pass
     SDL_GPUComputePipelineCreateInfo compute_initialize_pipeline_info = {
             .num_samplers = 1,
             .num_readonly_storage_textures = 1,
@@ -318,6 +324,24 @@ int main() {
         &compute_initialize_pipeline_info,
 		true,SHADER_COMPILE_STAGE::COMPUTE,SHADER_COMPILE_LANG::HLSL
     );
+
+    SDL_GPUComputePipelineCreateInfo compute_rasterize_glyphs_pipeline_info = {
+                .num_samplers = 1,
+                .num_readonly_storage_textures = 1,
+    			.num_readwrite_storage_textures = 1,
+                .num_uniform_buffers = 1,
+                .threadcount_x = 8,
+                .threadcount_y = 8,
+                .threadcount_z = 1,
+            };
+
+    compute_rasterize_glyphs_pipeline = CreateComputePipelineFromShader(
+        	"./",
+            context.device,
+            "cs_rasterize_glyphs.comp",
+            &compute_rasterize_glyphs_pipeline_info,
+    		true,SHADER_COMPILE_STAGE::COMPUTE,SHADER_COMPILE_LANG::HLSL
+        );
 	bool quit = false;
 	while(!quit){
 		SDL_Event evt;
