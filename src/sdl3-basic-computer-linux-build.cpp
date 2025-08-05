@@ -25,7 +25,7 @@
  SDL_GPUBuffer * symbols_compute_buffer;
  SDL_GPUBuffer * glyphs_compute_buffer;
 
- float teinte[3] = {0.2,0.5,0.6};
+ float teinte[3] = {0.7,0.5,0.6};
 
  /*
   *
