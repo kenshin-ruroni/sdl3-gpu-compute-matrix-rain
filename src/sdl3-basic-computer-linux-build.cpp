@@ -250,20 +250,20 @@ int main() {
 					.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
 					.size = symbols_size_in_bytes
 			};
-			 SDL_GPUTransferBuffer* glyphs_transfer_buffer = SDL_CreateGPUTransferBuffer(
+			 SDL_GPUTransferBuffer* symbols_transfer_buffer = SDL_CreateGPUTransferBuffer(
 					context.device,
 					&symbols_transfer_buffer_info);
 
 			 SDL_GPUBufferCreateInfo symbols_compute_buffer_info = {
 						.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
-						.size = symbols_size_in_bytes
+						.size = (Uint32) symbols_size_in_bytes
 			};
-			 SDL_GPUBuffer* glyphs_compute_buffer = SDL_CreateGPUBuffer(
+			 SDL_GPUBuffer* symbols_compute_buffer = SDL_CreateGPUBuffer(
 					context.device,
 					&symbols_compute_buffer_info );
 
 			 // Transfer the data from glyphs
-			 Uint32* glyphs_transfer_ptr = SDL_MapGPUTransferBuffer(
+			 Uint32* glyphs_transfer_ptr = (Uint32 *)SDL_MapGPUTransferBuffer(
 			 		context.device,
 					glyphs_transfer_buffer,
 			 		false
