@@ -391,7 +391,7 @@ struct Row
                 {
                     symbol->_state = 1;
                     symbol->pos_y = ypos;
-                    symbol->speed = 1 + frandom(0,1);
+                    symbol->speed = 1 + frandom(0,5);
                     int g = frandom(0, number_of_glyphs - 1);
                     symbol->id_glyph = g % 2 == 0 ? g : g + 1;
                     symbol->blending = 0.0f;
@@ -503,7 +503,7 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
         row->m_timer_init = 0; // à l'init on les présente sans tarder
         row->m_time_update = 0;
         row->m_timer_update =(uint8_t) ( 5 +   frandom(10,20) );
-        row->speed = 1+ frandom(0,0.25);
+        row->speed = 0.1 + frandom(0,5);
         row->ypos = ordonnee;
         if (abscisse + delta > right_most)//indexPlane > numberofMaxLinesPerPlane - 1 || abscisse + _delta  > right_most )
         {
@@ -522,7 +522,7 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
         	Symbol *symbol =  symbols + symbole_indice;
             symbol->color = color;
 
-            glyph_id = frandom(0, number_of_glyphs - 1);
+            glyph_id = urandom(0, number_of_glyphs - 1);
             symbol->id_glyph = ( glyph_id % 2 == 0 ? glyph_id : glyph_id+1);
             symbol->speed = 0;
             symbol->pos_x = (int) abscisse;

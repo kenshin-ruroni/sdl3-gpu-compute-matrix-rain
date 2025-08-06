@@ -156,7 +156,7 @@ inline void process_first_compute_pass(uint32_t &w,uint32_t &h,SDL_GPUCommandBuf
 	      			2
 	      		);
 	      SDL_PushGPUComputeUniformData(cmdbuf, 0, u, sizeof(float)*8);
-	      SDL_DispatchGPUCompute(computePass, number_of_symbols/8 ,1, 1);
+	      SDL_DispatchGPUCompute(computePass, number_of_symbols/32 ,1, 1);
 
 	      SDL_EndGPUComputePass(computePass);
 

@@ -115,7 +115,7 @@ int main() {
 
 	SDL_AddEventWatch(AppLifecycleWatcher, NULL);
 
-	Uint32 w = 800,h = 450;
+	Uint32 w = 1200,h = w*(1080./1920.);
 
 	initialize_matrix((int)w,(int)h);
 
