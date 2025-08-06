@@ -84,7 +84,7 @@ inline bool compileShaderFromSource(SHADER_COMPILE_STAGE &stage,SHADER_COMPILE_L
 	return compilation_status;
 }
 
-inline int Create_Context(int width,int height,Context* context, SDL_WindowFlags windowFlags,const char* window_name ="sdl3 window"){
+inline int SDL_gpu_create_context(int width,int height,Context* context, SDL_WindowFlags windowFlags,const char* window_name ="sdl3 window"){
 
 	context->device = SDL_CreateGPUDevice(
 			SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_MSL,
@@ -113,7 +113,7 @@ inline int Create_Context(int width,int height,Context* context, SDL_WindowFlags
 		return 0;
 }
 
-inline SDL_GPUShader* LoadAndCreateShader(
+inline SDL_GPUShader* SDL_gpu_load_and_create_shader(
 	const char* BasePath,
 	SDL_GPUDevice* device,
 	const char* shaderFilename,
@@ -202,7 +202,7 @@ inline SDL_GPUShader* LoadAndCreateShader(
 	return shader;
 }
 
-inline SDL_GPUComputePipeline* CreateComputePipelineFromShader(
+inline SDL_GPUComputePipeline* SDL_gpu_create_compute_pipeline_from_shader(
 	const char* BasePath,
 	SDL_GPUDevice* device,
 	const char* shaderFilename,
@@ -269,7 +269,7 @@ inline SDL_GPUComputePipeline* CreateComputePipelineFromShader(
 	return pipeline;
 }
 
-SDL_Surface* LoadImage(const char* BasePath, const char* imageFilename, int desiredChannels)
+SDL_Surface* SDL_gpu_load_image(const char* BasePath, const char* imageFilename, int desiredChannels)
 {
 	char fullPath[256];
 	SDL_Surface *result;
@@ -338,3 +338,55 @@ inline bool AppLifecycleWatcher(void *userdata, SDL_Event *event)
 	}
 	return false;
 }
+
+
+
+ template <typename T> inline SDL_GPUBuffer *SDL_gpu_create_gpu_buffer(uint32_t size,Context *context, SDL_GPUBufferUsageFlags usage)
+{
+	size_t size_in_bytes = size * sizeof(T);
+	SDL_GPUBufferCreateInfo buffer_info;
+	buffer_info.usage = usage;
+	buffer_info.size = size_in_bytes;
+	buffer_info.props = 0;
+	SDL_GPUBuffer* gpu_buffer = SDL_CreateGPUBuffer(context->device,&buffer_info );
+	return gpu_buffer;
+}
+
+ inline void SDL_gpu_copy_data_to_gpu_vram(size_t size_in_bytes,void *data, Context *context,SDL_GPUTransferBuffer* transfer_buffer){
+ 	// instantiate a pointer belonging to GPU device VRAM and copy data from CPU RAM to GPU VRAM
+ 		 Uint32* transfer_ptr = (Uint32 *)SDL_MapGPUTransferBuffer(context->device,transfer_buffer,false);
+ 		 SDL_memcpy(transfer_ptr,data,size_in_bytes);
+ 		 SDL_UnmapGPUTransferBuffer(context->device,transfer_buffer);
+ }
+
+template <typename T>  inline SDL_GPUTransferBuffer *SDL_gpu_acquire_gpu_transfer_buffer(uint32_t size_in_bytes, Context *context)
+{
+	SDL_GPUTransferBufferCreateInfo transfer_buffer_info;
+	transfer_buffer_info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+	transfer_buffer_info.size = size_in_bytes,
+	transfer_buffer_info.props = 0;
+	SDL_GPUTransferBuffer* transfer_buffer = SDL_CreateGPUTransferBuffer(context->device,&transfer_buffer_info);
+	return transfer_buffer;
+}
+
+
+
+
+inline void SDL_gpu_upload_gpu_buffer(SDL_GPUCopyPass* copyPass,uint32_t buffer_size_in_bytes,SDL_GPUBuffer *gpu_buffer,SDL_GPUTransferBuffer *gpu_transfer_buffer){
+
+	SDL_GPUTransferBufferLocation transfer_buffer_location;
+	transfer_buffer_location.transfer_buffer = gpu_transfer_buffer;
+	transfer_buffer_location.offset = 0;
+	SDL_GPUBufferRegion gpu_buffer_region;
+	gpu_buffer_region.buffer = gpu_buffer;
+	gpu_buffer_region.offset = 0;
+	gpu_buffer_region.size = buffer_size_in_bytes;
+	SDL_UploadToGPUBuffer
+	(
+		copyPass,
+		&transfer_buffer_location,
+		&gpu_buffer_region,
+		false
+	);
+}
+

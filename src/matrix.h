@@ -13,9 +13,9 @@
 // source : https://github.com/dhepper/font8x8/blob/master/font8x8_basic.h
 //
 
-static uint32_t glyphs_size = 2 * 177;
+static uint32_t number_of_glyphs = 2 * 177;
 
-static uint32_t glyphs_size_in_bytes = glyphs_size * sizeof(uint32_t);
+static uint32_t glyphs_size_in_bytes = number_of_glyphs * sizeof(uint32_t);
 
 
 static uint8_t font8x8[177][8] =
@@ -246,7 +246,7 @@ struct Row
 
          uint8_t m_time_update;
 
-         int moving_cell; // cels qui propagent l'opacité
+         uint32_t moving_cell; // cels qui propagent l'opacité
          uint8_t plane_index;
          int delta;// letter spacing
 
@@ -254,7 +254,7 @@ struct Row
 
          int start_symbol_index;
 
-         inline void Initialize(float Xmost, float startY, Symbol *symbols)
+         inline void Initialize(float Xmost, float startY)
         {
 
 
@@ -287,7 +287,7 @@ struct Row
 
 
             int k = start_symbol_index;
-            for (int i = 0; i < m_lineLength; i++)
+            for (uint32_t i = 0; i < m_lineLength; i++)
             {
 
             	Symbol *s = symbols+k;
@@ -298,7 +298,7 @@ struct Row
                 }
                 else
                     s->speed = 0;
-                int glyph_id = random(0, glyphs_size - 1);
+                int glyph_id = random(0, number_of_glyphs - 1);
                 s->id_glyph = glyph_id % 2 == 0 ? glyph_id : glyph_id + 1;
                 s->_state = 1;
                 s->pos_y = (int)ypos;
@@ -329,7 +329,7 @@ struct Row
 
              }
 
-         inline void Update(Symbol *symbols)
+         inline void Update()
         {
 
 
@@ -339,7 +339,7 @@ struct Row
                 return;
             }
 
-
+            Symbol *symbol = symbols+start_symbol_index + moving_cell;
 
             if (moving_cell < m_lineLength - 1) // il y a encore du boulot pour initialiser la ligne
             {
@@ -347,11 +347,11 @@ struct Row
 
                 // print(" current pos y " + symbols[start_symbol_index + moving_cell].pos_y + "  next pos y " + symbols[start_symbol_index + moving_cell+1].pos_y);
 
-                if (symbols[start_symbol_index + moving_cell].pos_y < symbols[start_symbol_index + moving_cell + 1].pos_y - 8)
+                if (symbol->pos_y < symbols[start_symbol_index + moving_cell + 1].pos_y - 8)
                 {
                     // print("starting next cell speed was " + symbols[start_symbol_index + moving_cell+1].speed);
-                    symbols[start_symbol_index + moving_cell + 1].speed = symbols[start_symbol_index + moving_cell].speed;
-                    symbols[start_symbol_index + moving_cell + 1].visible = 1; // cell devient visible
+                    (symbols + 1)->speed = symbols[start_symbol_index + moving_cell].speed;
+                    (symbol + 1)->visible = 1; // cell devient visible
                                                                                // print("starting next cell speed is " + symbols[start_symbol_index + moving_cell+1].speed);
                     moving_cell++;
                 }
@@ -360,16 +360,16 @@ struct Row
 
             //  print("m_lineLength " + m_lineLength);
 
-            for (int i = 0; i < m_lineLength; i++)
+            for (uint32_t i = 0; i < m_lineLength; i++)
             {
-            	Symbol *symbol = symbols+start_symbol_index + i;
+            	symbol = symbols+start_symbol_index + i;
                 UpdateSymbol(symbol, id);
                 if (symbol->pos_y < 0)
                 {
                     symbol->_state = 1;
                     symbol->pos_y = std::floor(ypos);
                     symbol->speed = speed + random(0,10);
-                    int g = random(0, glyphs_size - 1);
+                    int g = random(0, number_of_glyphs - 1);
                     symbol->id_glyph = g % 2 == 0 ? g : g + 1;
                     symbol->blending = 0.0f;
                 }
@@ -412,7 +412,7 @@ struct Row
 
             }
             // on est sur la première, on lui transmet le contenu de la dernière et on réinitialise la dernière
-            int glyph = random(0, glyphs_size - 1);
+            int glyph = random(0, number_of_glyphs - 1);
             symbols[start_symbol_index].id_glyph = glyph % 2 == 0 ? glyph : glyph + 1;
             // on place son ancien contenu sur la première
 
@@ -423,7 +423,7 @@ struct Row
 static size_t delta = 1;
 static size_t numberofMaxRows = 1000;
 static size_t lineMaxLength = 1000;
-static size_t symbols_size = 1000;
+static size_t number_of_symbols = 1000;
 static size_t symbols_size_in_bytes = 1000;
 
 static int rightMost;
@@ -438,7 +438,7 @@ inline uint32_t * ComputeGlyphsDataToHighAndLowInt()
 
     uint32_t *glyphs = (uint32_t *)malloc(glyphs_size_in_bytes);
     int k = 0;
-    for (int i = 0; i < glyphs_size; i += 2)
+    for (int i = 0; i < number_of_glyphs; i += 2)
     {
         *(glyphs + i) =     (uint32_t) ( (font8x8[k][7] << 24) | (font8x8[k][6] << 16) | (font8x8[k][5] << 8) |  font8x8[k][4] );
         *(glyphs + i + 1) = (uint32_t) ( (font8x8[k][3] << 24) | (font8x8[k][2] << 16)  | (font8x8[k][1] << 8) |  font8x8[k][0] );
@@ -474,7 +474,7 @@ inline void InitializeMatrixRows(int w, int h,int lineMaxLength)
 
     int symbole_indice = 0;
 
-    for (int i = 0; i < numberofMaxRows; i++)
+    for (size_t i = 0; i < numberofMaxRows; i++)
     {
 
         Row *row = rows+i;
@@ -511,7 +511,7 @@ inline void InitializeMatrixRows(int w, int h,int lineMaxLength)
         	Symbol *symbol =  symbols + symbole_indice;
             symbol->color = color;
 
-            id = random(0, glyphs_size - 1);
+            id = random(0, number_of_glyphs - 1);
             symbol->id_glyph = ( id % 2 == 0 ? id : id+1);
             symbol->speed = 0;
             symbol->pos_x = (int) abscisse;
@@ -542,17 +542,59 @@ inline void InitializeMatrixRows(int w, int h,int lineMaxLength)
     }
 }
 
-inline void InitializeMatrix(int w,int h)
+	inline void InitializeMatrix(int w,int h)
     {
         // on place dans chaque cellule l'indice (0-55) qui correspond à l' image d'une lettre verte ou blanche dnas les buffers de texture
 
         numberofMaxRows = w / 8 + 3;
         lineMaxLength = 1 * h / 8;
 
-        symbols_size = numberofMaxRows * lineMaxLength;
-        symbols_size_in_bytes = symbols_size*sizeof(Symbol);
+        number_of_symbols = numberofMaxRows * lineMaxLength;
+        symbols_size_in_bytes = number_of_symbols*sizeof(Symbol);
         symbols = (Symbol *)malloc(symbols_size_in_bytes);
         InitializeMatrixRows(w,h,lineMaxLength);
+
+    }
+
+	void UpdateMatrix()
+    {
+
+        int inactiverows = 0;
+        Row *row;
+        for (size_t i = 0; i < numberofMaxRows; i++)
+        {
+        	row = rows +i;
+            if (row->m_activeCels == 0)
+            {
+                row->Initialize(rightMost, upMost);
+                if (row->m_activeCels == 0)
+                {
+                    inactiverows++;
+                }
+                else
+                {
+                    m_activerows++;
+                }
+            }
+            else
+            {
+                row->Update();
+                if (row->m_activeCels == 0)
+                {
+                    m_activerows--;
+                    inactiverows++;
+                }
+            }
+
+        }
+
+        int activeGlyphs = 0;
+        for (int i = 0; i < numberofMaxRows;i++)
+        {
+            activeGlyphs += (row+i)->m_activeCels;
+        }
+
+        printf("active rows %i  inactive %i  total %i   active glyphs %i ",m_activerows,inactiverows,m_activerows + inactiverows,activeGlyphs);
 
     }
 

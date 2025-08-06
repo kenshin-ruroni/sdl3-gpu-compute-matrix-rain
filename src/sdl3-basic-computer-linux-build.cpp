@@ -12,7 +12,10 @@
 #include "SDL3/SDL.h"
 #include "SDL3_helper_functions.h"
 
-#include "glyphs.h"
+#include "compute_shaders_passes.h"
+#include "matrix.h"
+
+
 
  SDL_GPUComputePipeline* compute_initialize_pipeline;
  SDL_GPUComputePipeline* compute_rasterize_glyphs_pipeline;
@@ -25,11 +28,16 @@
  SDL_GPUBuffer * symbols_compute_buffer;
  SDL_GPUBuffer * glyphs_compute_buffer;
 
-#include "compute_shaders_passes.h"
+ SDL_GPUTransferBuffer *symbols_gpu_transfer_buffer;
 
- float teinte[3] = {0.9,0.5,0.3};
-
-
+ inline void upload_symbols_to_gpu(Context* context,SDL_GPUCommandBuffer* cmdbuf){
+ 	//SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(context->device);
+ 	SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(cmdbuf);
+ 	SDL_gpu_copy_data_to_gpu_vram(symbols_size_in_bytes,(void *)symbols,context,symbols_gpu_transfer_buffer);
+ 	SDL_gpu_upload_gpu_buffer(copyPass,symbols_size_in_bytes,symbols_compute_buffer,symbols_gpu_transfer_buffer);
+ 	SDL_EndGPUCopyPass(copyPass);
+ 	//SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
+ }
 
  inline int Draw(Context* context)
  {
@@ -52,9 +60,11 @@
 
     	 // first pass initialize texture where we render matrix rain
     	 //
-    	 process_first_compute_pass(teinte, w,h,cmdbuf);
+    	 process_first_compute_pass( w,h,cmdbuf);
 
          // second pass : draw matrix glyphs by rasterization with compute shader
+
+    	 process_second_compute_pass(w,h,cmdbuf);
 
          SDL_GPUBlitRegion gpu_blit_source={
         		 .texture = write_texture,
@@ -79,7 +89,8 @@
          );
      }
 
-
+	 UpdateMatrix();
+	 upload_symbols_to_gpu(context,cmdbuf);
      SDL_SubmitGPUCommandBuffer(cmdbuf);
 
 
@@ -107,9 +118,9 @@ int main() {
 
 	InitializeMatrix((int)w,(int)h);
 
-	int r = Create_Context(w,h,&context,SDL_WINDOW_RESIZABLE,"matrix rain");
+	int r = SDL_gpu_create_context(w,h,&context,SDL_WINDOW_RESIZABLE,"matrix rain");
 
-
+	// gpu buffers to store glyphs and symbols on GPU device
 	SDL_GPUBufferCreateInfo symbols_buffer_info = {
 			.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
 			.size = symbols_size_in_bytes,
@@ -125,16 +136,16 @@ int main() {
 				.size = symbols_size_in_bytes,
 				.props=0
 			};
-		glyphs_compute_buffer = SDL_CreateGPUBuffer(
-				context.device,
-				&symbols_buffer_info
-			);
+	glyphs_compute_buffer = SDL_CreateGPUBuffer(
+			context.device,
+			&symbols_buffer_info
+		);
 
 	if ( r != 0 ){
 		exit(-1);
 	}
 	// Load the image
-	SDL_Surface *imageData = LoadImage("./","crysis-2.jpg", 4);
+	SDL_Surface *imageData = SDL_gpu_load_image("./","crysis-2.jpg", 4);
 	if (imageData == NULL)
 	{
 		SDL_Log("Could not load image data!");
@@ -185,24 +196,24 @@ int main() {
 			.size = (Uint32) imageData->w * imageData->h * 4,
 			.props = 0
 		};
-		SDL_GPUTransferBuffer* textureTransferBuffer = SDL_CreateGPUTransferBuffer(
+		SDL_GPUTransferBuffer* texture_image_transfer_buffer = SDL_CreateGPUTransferBuffer(
 			context.device,
 			&transfer_buffer_info
 		);
 
 		Uint8* textureTransferPtr = (Uint8 *) SDL_MapGPUTransferBuffer(
 			context.device,
-			textureTransferBuffer,
+			texture_image_transfer_buffer,
 			false
 		);
 		SDL_memcpy(textureTransferPtr, imageData->pixels, imageData->w * imageData->h * 4);
-		SDL_UnmapGPUTransferBuffer(context.device, textureTransferBuffer);
+		SDL_UnmapGPUTransferBuffer(context.device, texture_image_transfer_buffer);
 
 		// Upload the image data to the GPU resources
 		SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(context.device);
 		SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
 		SDL_GPUTextureTransferInfo texture_transfer_info = {
-			.transfer_buffer = textureTransferBuffer,
+			.transfer_buffer = texture_image_transfer_buffer,
 			.offset = 0, /* Zeros out the rest */
 		};
 		SDL_GPUTextureRegion texture_region = {
@@ -211,6 +222,7 @@ int main() {
 				.h = (Uint32) imageData->h,
 				.d = 1
 		};
+		// upload image data
 		SDL_UploadToGPUTexture(
 				copyPass,
 				&texture_transfer_info ,
@@ -218,61 +230,27 @@ int main() {
 				false
 			);
 
+		// upload glyphs and symbols to GPU device
+
+		// upload glyphs to GPU VRAM
+		glyphs_compute_buffer = SDL_gpu_create_gpu_buffer<uint32_t>(number_of_glyphs,&context,SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ);
+		SDL_GPUTransferBuffer *glyphs_gpu_transfer_buffer = SDL_gpu_acquire_gpu_transfer_buffer<uint32_t>(glyphs_size_in_bytes,&context);
+		// Transfer the data
+		SDL_gpu_copy_data_to_gpu_vram(glyphs_size_in_bytes,(void *)glyphs,&context,glyphs_gpu_transfer_buffer);
+		SDL_gpu_upload_gpu_buffer(copyPass,glyphs_size_in_bytes,glyphs_compute_buffer,glyphs_gpu_transfer_buffer);
+
+		// upload symbols to GPU VRAM
+		symbols_compute_buffer = SDL_gpu_create_gpu_buffer<Symbol>(number_of_symbols,&context,SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ);
+		symbols_gpu_transfer_buffer = SDL_gpu_acquire_gpu_transfer_buffer<Symbol>(symbols_size_in_bytes,&context);
+		// Transfer the data
+		SDL_gpu_copy_data_to_gpu_vram(symbols_size_in_bytes,(void *)symbols,&context,symbols_gpu_transfer_buffer);
+		SDL_gpu_upload_gpu_buffer(copyPass,symbols_size_in_bytes,symbols_compute_buffer,symbols_gpu_transfer_buffer);
+
 		SDL_EndGPUCopyPass(copyPass);
 		SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
 		SDL_DestroySurface(imageData);
-		SDL_ReleaseGPUTransferBuffer(context.device, textureTransferBuffer);
-		// transfer of image data completed
-
-		// transfert glyphs and symbols to GPU device
-
-		// glyphs first
-		SDL_GPUTransferBufferCreateInfo glyphs_transfer_buffer_info =
-		{
-				.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-				.size = glyphs_size * sizeof(uint)
-		};
-		 SDL_GPUTransferBuffer* glyphs_transfer_buffer = SDL_CreateGPUTransferBuffer(
-				context.device,
-				&glyphs_transfer_buffer_info);
-
-		 SDL_GPUBufferCreateInfo glyphs_compute_buffer_info = {
-					.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
-					.size = glyphs_size * sizeof(uint)
-		};
-		 SDL_GPUBuffer* glyphs_compute_buffer = SDL_CreateGPUBuffer(
-				context.device,
-				&glyphs_compute_buffer_info );
-
-			// symbols
-			SDL_GPUTransferBufferCreateInfo symbols_transfer_buffer_info =
-			{
-					.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-					.size = symbols_size_in_bytes
-			};
-			 SDL_GPUTransferBuffer* symbols_transfer_buffer = SDL_CreateGPUTransferBuffer(
-					context.device,
-					&symbols_transfer_buffer_info);
-
-			 SDL_GPUBufferCreateInfo symbols_compute_buffer_info = {
-						.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
-						.size = (Uint32) symbols_size_in_bytes
-			};
-			 SDL_GPUBuffer* symbols_compute_buffer = SDL_CreateGPUBuffer(
-					context.device,
-					&symbols_compute_buffer_info );
-
-			 // Transfer the data from glyphs
-			 Uint32* glyphs_transfer_ptr = (Uint32 *)SDL_MapGPUTransferBuffer(
-			 		context.device,
-					glyphs_transfer_buffer,
-			 		false
-			 	);
-			 SDL_memcpy(glyphs_transfer_ptr,glyphs,glyphs_size * sizeof(uint));
-			 SDL_UnmapGPUTransferBuffer(
-			 		context.device,
-					glyphs_transfer_buffer
-			 	);
+		SDL_ReleaseGPUTransferBuffer(context.device, texture_image_transfer_buffer);
+		SDL_ReleaseGPUTransferBuffer(context.device, glyphs_gpu_transfer_buffer);
 
 	/*
 	 *  write_texture will be used to blit with swapChainTexture
@@ -303,7 +281,7 @@ int main() {
             .threadcount_z = 1,
         };
 
-    compute_initialize_pipeline = CreateComputePipelineFromShader(
+    compute_initialize_pipeline = SDL_gpu_create_compute_pipeline_from_shader(
     	"./",
         context.device,
         "cs_initialize_out_image.comp",
@@ -317,11 +295,11 @@ int main() {
     			.num_readwrite_storage_textures = 1,
                 .num_uniform_buffers = 1,
                 .threadcount_x = 8,
-                .threadcount_y = 8,
+                .threadcount_y = 1,
                 .threadcount_z = 1,
             };
 
-    compute_rasterize_glyphs_pipeline = CreateComputePipelineFromShader(
+    compute_rasterize_glyphs_pipeline = SDL_gpu_create_compute_pipeline_from_shader(
         	"./",
             context.device,
             "cs_rasterize_glyphs.comp",
@@ -343,3 +321,4 @@ int main() {
 	}
 
 }
+
