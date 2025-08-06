@@ -10,15 +10,18 @@
 // Library effective with Linux
 #include <unistd.h>
 #include "SDL3/SDL.h"
+
+#include "matrix.h"
+
 #include "SDL3_helper_functions.h"
 
 #include "compute_shaders_passes.h"
-#include "matrix.h"
+
 
 
 
  SDL_GPUComputePipeline* compute_initialize_pipeline;
- SDL_GPUComputePipeline* compute_rasterize_glyphs_pipeline;
+ SDL_GPUComputePipeline* compute_rasterize_symbols_pipeline;
  SDL_GPUComputePipeline* compute_combine_images_pipeline;
 
  SDL_GPUTexture* image_texture;
@@ -89,11 +92,9 @@
          );
      }
 
-	 UpdateMatrix();
+	 update_matrix();
 	 upload_symbols_to_gpu(context,cmdbuf);
      SDL_SubmitGPUCommandBuffer(cmdbuf);
-
-
 
      return 0;
  }
@@ -114,31 +115,31 @@ int main() {
 
 	SDL_AddEventWatch(AppLifecycleWatcher, NULL);
 
-	Uint32 w = 800,h = 800;
+	Uint32 w = 800,h = 450;
 
-	InitializeMatrix((int)w,(int)h);
+	initialize_matrix((int)w,(int)h);
 
 	int r = SDL_gpu_create_context(w,h,&context,SDL_WINDOW_RESIZABLE,"matrix rain");
 
 	// gpu buffers to store glyphs and symbols on GPU device
-	SDL_GPUBufferCreateInfo symbols_buffer_info = {
-			.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
-			.size = symbols_size_in_bytes,
-			.props=0
-		};
+	SDL_GPUBufferCreateInfo symbols_buffer_info ;
+	symbols_buffer_info.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
+	symbols_buffer_info.size = symbols_size_in_bytes;
+	symbols_buffer_info.props=0;
+
 	symbols_compute_buffer = SDL_CreateGPUBuffer(
 			context.device,
 			&symbols_buffer_info
 		);
 
-	SDL_GPUBufferCreateInfo glyphs_buffer_info = {
-				.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ,
-				.size = symbols_size_in_bytes,
-				.props=0
-			};
+	SDL_GPUBufferCreateInfo glyphs_buffer_info;
+	glyphs_buffer_info.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
+	glyphs_buffer_info.size = glyphs_size_in_bytes;
+	glyphs_buffer_info.props=0;
+
 	glyphs_compute_buffer = SDL_CreateGPUBuffer(
 			context.device,
-			&symbols_buffer_info
+			&glyphs_buffer_info
 		);
 
 	if ( r != 0 ){
@@ -271,15 +272,16 @@ int main() {
     write_texture = SDL_CreateGPUTexture(context.device, &write_texture_info);
 
     // create first compute shader pass
-    SDL_GPUComputePipelineCreateInfo compute_initialize_pipeline_info = {
-            .num_samplers = 1,
-            .num_readonly_storage_textures = 1,
-			.num_readwrite_storage_textures = 1,
-            .num_uniform_buffers = 1,
-            .threadcount_x = 8,
-            .threadcount_y = 8,
-            .threadcount_z = 1,
-        };
+    SDL_GPUComputePipelineCreateInfo compute_initialize_pipeline_info={};
+
+	compute_initialize_pipeline_info.num_samplers = 1;
+	compute_initialize_pipeline_info.num_readonly_storage_textures = 1;
+	compute_initialize_pipeline_info.num_readwrite_storage_textures = 1;
+	compute_initialize_pipeline_info.num_uniform_buffers = 1;
+	compute_initialize_pipeline_info.threadcount_x = 8,
+	compute_initialize_pipeline_info.threadcount_y = 8,
+	compute_initialize_pipeline_info.threadcount_z = 1,
+
 
     compute_initialize_pipeline = SDL_gpu_create_compute_pipeline_from_shader(
     	"./",
@@ -289,21 +291,23 @@ int main() {
 		true,SHADER_COMPILE_STAGE::COMPUTE,SHADER_COMPILE_LANG::HLSL
     );
 
-    SDL_GPUComputePipelineCreateInfo compute_rasterize_glyphs_pipeline_info = {
-                .num_samplers = 1,
-                .num_readonly_storage_textures = 1,
-    			.num_readwrite_storage_textures = 1,
-                .num_uniform_buffers = 1,
-                .threadcount_x = 8,
-                .threadcount_y = 1,
-                .threadcount_z = 1,
-            };
+    SDL_GPUComputePipelineCreateInfo compute_rasterize_symbols_pipeline_info={};
 
-    compute_rasterize_glyphs_pipeline = SDL_gpu_create_compute_pipeline_from_shader(
+	compute_rasterize_symbols_pipeline_info.num_samplers = 1;
+	compute_rasterize_symbols_pipeline_info.num_readonly_storage_textures = 1;
+	compute_rasterize_symbols_pipeline_info.num_readwrite_storage_textures = 1;
+	compute_rasterize_symbols_pipeline_info.num_readonly_storage_buffers = 2;
+	compute_rasterize_symbols_pipeline_info.num_uniform_buffers = 1;
+	compute_rasterize_symbols_pipeline_info.threadcount_x = 8;
+	compute_rasterize_symbols_pipeline_info.threadcount_y = 1;
+	compute_rasterize_symbols_pipeline_info.threadcount_z = 1;
+
+
+    compute_rasterize_symbols_pipeline = SDL_gpu_create_compute_pipeline_from_shader(
         	"./",
             context.device,
-            "cs_rasterize_glyphs.comp",
-            &compute_rasterize_glyphs_pipeline_info,
+            "cs_rasterize_symbols.comp",
+            &compute_rasterize_symbols_pipeline_info,
     		true,SHADER_COMPILE_STAGE::COMPUTE,SHADER_COMPILE_LANG::HLSL
         );
 

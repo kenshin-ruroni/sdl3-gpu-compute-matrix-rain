@@ -3,7 +3,7 @@
 #include "SDL3/SDL.h"
 
 extern  SDL_GPUComputePipeline* compute_initialize_pipeline;
-extern SDL_GPUComputePipeline* compute_rasterize_glyphs_pipeline;
+extern SDL_GPUComputePipeline* compute_rasterize_symbols_pipeline;
 extern SDL_GPUComputePipeline* compute_combine_images_pipeline;
 
 extern SDL_GPUTexture* image_texture;
@@ -73,29 +73,45 @@ inline void process_first_compute_pass(uint32_t &w,uint32_t &h,SDL_GPUCommandBuf
 
  }
 
+	float u[8] =
+	{
+		teinte[0],teinte[1],teinte[2],teinte[3],
+		glyphs_color[0],glyphs_color[1],glyphs_color[2],glyphs_color[3]
+	};
+
  inline void process_second_compute_pass(uint32_t &w,uint32_t &h,SDL_GPUCommandBuffer* cmdbuf){
 
-	 SDL_GPUStorageTextureReadWriteBinding compute_initialize_textures_bindings[] =
-	 	 {
-	 		{
-	              .texture = write_texture,
-	              .cycle = false
-	         },
-	 		{
-	              .texture = image_texture,
-	              .cycle = false
-	         }
-	 	 };
+	 SDL_GPUStorageTextureReadWriteBinding compute_rasterize_textures_bindings[] =
+	 {
+		{
+			  .texture = write_texture,
+			  .cycle = false
+		 },
+		{
+			  .texture = image_texture,
+			  .cycle = false
+		 }
+	 };
+
+	 SDL_GPUStorageBufferReadWriteBinding compute_rasterize_buffers_bindings[] =
+	 {
+		 {
+				 .buffer = glyphs_compute_buffer
+		 },
+		 {
+				 .buffer = symbols_compute_buffer
+		 }
+	 };
 
 	      SDL_GPUComputePass* computePass = SDL_BeginGPUComputePass(
 	          cmdbuf,
-	 		 compute_initialize_textures_bindings,
+			  compute_rasterize_textures_bindings,
 	          2,
-	          NULL,
-	          0
+			  compute_rasterize_buffers_bindings,
+	          2
 	      );
 
-	      SDL_BindGPUComputePipeline(computePass, compute_rasterize_glyphs_pipeline);
+	      SDL_BindGPUComputePipeline(computePass, compute_rasterize_symbols_pipeline);
 
 	      SDL_GPUBuffer *gpu_buffers[] = {
 	    	glyphs_compute_buffer,
@@ -109,6 +125,11 @@ inline void process_first_compute_pass(uint32_t &w,uint32_t &h,SDL_GPUCommandBuf
 	      			,
 	      			2
 	      		);
+
+	      const char *error=SDL_GetError();
+	      if( error != NULL && strlen(error) > 0){
+	    	  printf("%s \n",error);
+	      }
 
 	      SDL_GPUTextureSamplerBinding sampler_bindings[] =
 	      {
@@ -134,8 +155,8 @@ inline void process_first_compute_pass(uint32_t &w,uint32_t &h,SDL_GPUCommandBuf
 	 				textures,
 	      			2
 	      		);
-	      SDL_PushGPUComputeUniformData(cmdbuf, 0, teinte, sizeof(float)*8);
-	      SDL_DispatchGPUCompute(computePass, w / 8 , h / 8 , 1);
+	      SDL_PushGPUComputeUniformData(cmdbuf, 0, u, sizeof(float)*8);
+	      SDL_DispatchGPUCompute(computePass, number_of_symbols/8 ,1, 1);
 
 	      SDL_EndGPUComputePass(computePass);
 

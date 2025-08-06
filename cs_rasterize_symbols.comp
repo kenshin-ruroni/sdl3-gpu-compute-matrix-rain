@@ -1,0 +1,150 @@
+
+struct Symbol
+{
+	int visible;
+	int _state;
+	int pos_x;
+	int pos_y;
+	int id_glyph;
+	float blending;
+	float speed;
+	uint color;
+};
+
+
+Texture2D<float4> in_image: register(t0, space0);
+StructuredBuffer<uint> glyphs:register(t2, space0);
+StructuredBuffer<Symbol> symbols:register(t3, space0);
+
+SamplerState in_image_sampler : register(s0, space0);
+
+RWTexture2D<float4> out_image: register(u0, space1);
+
+
+
+
+cbuffer UBO : register(b0, space2)
+{
+    float4 teinte;
+    float4 glyph_color;
+};
+
+
+void DrawPixel(uint2 id_in, float4 color, int size, float blending)
+{
+
+	float w, h;
+    in_image.GetDimensions(w, h);
+    float2 texcoord = (float2(id_in)) / float2(w, h);
+    float4 inPixel = in_image.SampleLevel(in_image_sampler, texcoord, 0);
+	uint3 id;
+	for (int i = 0; i < size; i++)
+	{
+		id.x = id_in.x + i;
+		for (int j = 0; j < size; j++)
+		{
+			id.y = id_in.y + j;
+			float f = length(inPixel)*0.25;
+			out_image[id.xy] =   ( color *  inPixel * float4(teinte.xyz,1) ) ;
+			
+			//out_image[id.xy] =   float4(1,0,0,1) ;
+		}
+	}
+}
+
+float4 ComputeAverageBackgroundColor(uint2 id_in, int size)
+{
+	uint2 id;
+	float4 color = float4(0, 0, 0, 1);
+
+	float w, h;
+    in_image.GetDimensions(w, h);
+    float2 texcoord = (float2(id_in)) / float2(w, h);
+    float4 inPixel = in_image.SampleLevel(in_image_sampler, texcoord, 0);
+
+	for (int i = 0; i < size*8; i++)
+	{
+		id.x = id_in.x + i;
+		for (int j = 0; j < size*8; j++)
+		{
+			id.y = id_in.y + j;
+			color += inPixel;
+		}
+	}
+	color /= (64*size*size);
+	return color;
+}
+
+void DrawGlyph(uint2 pos, float blending, float4 color, int size,int glyph_low, int glyph_high)
+{
+	uint mask = 1; // 2^32
+	// on va de la droite vers la gauche sur les data de glyph
+	uint2 id_out;
+	int ii = glyph_low;
+	id_out.x = pos.x;
+	id_out.y = pos.y;
+
+	//out_image[id_out.xy] = float4(1, 1, 0, blending);
+
+	float w, h;
+    in_image.GetDimensions(w, h);
+    float2 texcoord = (float2(pos)) / float2(w, h);
+    float4 inPixel = in_image.SampleLevel(in_image_sampler, texcoord, 0);
+
+	float f = length(inPixel)*0.25;
+	float4 background = float4(1., 0.9, 0.7, 1);// inPixel * float4(f *teinte.xyz, 1); // float4(0, 0, 0, 1); // in_image[pos];// *float4(0.5, 0.9, 0.5, 1);// float4(0.1, 0.8, 0.1, 1);
+	float4 foreground = inPixel; //float4(glyph_color.xyz, 1);// *background; // +(1 - blending)  *background;// +0.5* (inPixel * float4(teinte.xyz, 1)); // *float4(0.1, 1, 0.5, 1);
+
+	for (int j = 0; j < 2; j++)
+	{
+		for (int i = 0; i < 32; i++) // 32 bits
+		{
+			if ( (ii & mask) == mask) // le bit est a 1
+			{
+				DrawPixel(id_out, foreground, size, blending);
+			}
+			else
+			{
+				DrawPixel(id_out, background, size, blending);
+				//out_image[id_out.xy] = in_image[id_out.xy];
+			}
+			id_out.x += size;
+			if (fmod(i + 1, 8) == 0) // on change de ligne
+			{
+				id_out.y += size;
+				id_out.x = pos.x;
+			}
+			mask *= 2; // on shift vers la gauche
+		}
+
+		id_out.x = pos.x;
+		ii = glyph_high;
+		mask = 1;
+
+	}
+}
+
+
+
+[numthreads(8,1,1)]
+void main(uint3 id : SV_DispatchThreadID)
+{
+	Symbol symbol = symbols[id.x];
+	
+	int id_ = 60;
+
+	int glyph_high =  glyphs[id_];// glyphs[symbol.id_glyph];
+	int glyph_low = glyphs[id_+1];  //glyphs[symbol.id_glyph + 1];
+	
+	uint2 pos;
+	pos.x = symbol.pos_x ;
+	pos.y = symbol.pos_y ;
+	
+	// a partir du symbol color on recalcule son float4 correspondant
+	int size = 2;
+	float4 average = ComputeAverageBackgroundColor(pos, size);
+	float f = length(average)*0.25;
+	float4 color =   average * float4(teinte.xyz,1) ;// *average; // ComputeAverageBackgroundColor(pos, size);  //in_image[id.xy] ; // +  //
+	DrawGlyph(pos,1,color,size,glyph_low,glyph_high);
+
+}
