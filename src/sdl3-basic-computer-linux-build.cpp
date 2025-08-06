@@ -42,7 +42,7 @@
  	//SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
  }
 
- inline int Draw(Context* context)
+ inline int render_matrix(Context* context)
  {
      SDL_GPUCommandBuffer* cmdbuf = SDL_AcquireGPUCommandBuffer(context->device);
      if (cmdbuf == NULL)
@@ -321,7 +321,7 @@ int main() {
 				quit = true;
 			}
 		}
-		Draw(&context);
+		render_matrix(&context);
 	}
 
 }
