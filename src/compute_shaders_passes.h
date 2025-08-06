@@ -15,8 +15,8 @@ extern SDL_GPUBuffer * symbols_compute_buffer;
 extern SDL_GPUBuffer * glyphs_compute_buffer;
 
 
-float teinte[4] = {0.9,0.5,0.3,1.0};
-float glyphs_color[4] = {0.2,0.5,0.8,1.0};
+float teinte[4] = {0.9,0.9,0.6,1.0};
+float glyphs_color[4] = {0.7,0.5,0.8,1.0};
 
 inline void process_first_compute_pass(uint32_t &w,uint32_t &h,SDL_GPUCommandBuffer* cmdbuf){
 

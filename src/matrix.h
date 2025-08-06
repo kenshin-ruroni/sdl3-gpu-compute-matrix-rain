@@ -36,11 +36,11 @@ struct Symbol
 {
 	 int visible;
 	 int _state;
-	 int pos_x;
-	 int pos_y;
+	 float pos_x;
+	 float pos_y;
 	 int id_glyph;
 	 float blending;
-	 int speed;
+	 float speed;
 	 uint32_t color;
 };
 
@@ -230,9 +230,14 @@ static uint8_t font8x8[177][8] =
 
 
 
-int random(int min, int max){
+float frandom(float min, float max){
 	srand (time(NULL));
-	return rand()%max+min;
+	return min + (max-min)*((float)rand()/(float)RAND_MAX);
+}
+
+uint urandom(uint min, uint max){
+	srand (time(NULL));
+	return min + rand()%max;
 }
 
 
@@ -244,7 +249,7 @@ struct Row
 
          uint32_t id;
 
-         int32_t speed;
+         float speed;
          uint8_t m_init;
          uint32_t m_lineLengthMax;
 
@@ -284,11 +289,11 @@ struct Row
             }*/
             m_time_init = 0;
 
-            m_timer_init = (uint8_t)(random(10,30) & 0XFF);
+            m_timer_init = (uint8_t)(urandom(10,30) & 0XFF);
 
             m_lineLength = m_lineLengthMax;
 
-            speed = 1 + random(0,1);
+            speed = 1.0 + frandom(0,2);
 
             ypos = startY; //  +float(rand() % 10 - 20);
             xpos = Xmost;
@@ -312,15 +317,15 @@ struct Row
                 }
                 else
                     s->speed = 0;
-                int glyph_id = random(0, number_of_glyphs - 1);
+                uint glyph_id = urandom(0, number_of_glyphs - 1);
                 s->id_glyph = glyph_id % 2 == 0 ? glyph_id : glyph_id + 1;
                 s->_state = 1;
-                s->pos_y = (int)ypos;
+                s->pos_y = ypos;
                 k++;
             }
             m_activeCels = m_lineLength;
-            m_time_update = (uint8_t)(random(0,15));
-            m_timer_update = (uint8_t)(1 +random(0,15));
+            m_time_update = (uint8_t)(urandom(0,15));
+            m_timer_update = (uint8_t)(1 +urandom(0,15));
         }
 
          inline void UpdateSymbol(Symbol *symbol, int row_id)
@@ -329,14 +334,8 @@ struct Row
                  switch (state)
                  {
                      case 1:
-                         //symbol->pos_y -= symbol->speed;
-                    	 float py_before = symbol->pos_y;
+
                          symbol->pos_y += symbol->speed;
-                         float py_after = symbol->pos_y;
-
-                         //if ( py_before -py_after != 0 )
-                        //	 	 	 	 printf("row id %i pos y before pos y after %i %f %f \n",row_id,py_before,py_after );
-
                          if (symbol->visible == 1)
                          {
                              if (symbol->blending < 1.0f)
@@ -350,7 +349,7 @@ struct Row
 
              }
 
-         inline void Update()
+         inline void update()
         {
 
 
@@ -372,7 +371,7 @@ struct Row
                 if (symbol->pos_y > (symbol+ 1)->pos_y + 8)
                 {
                     // print("starting next cell speed was " + symbols[start_symbol_index + moving_cell+1].speed);
-                    (symbols + 1)->speed = symbol->speed;
+                    (symbol + 1)->speed = symbol->speed;
                     (symbol + 1)->visible = 1; // cell devient visible
                                                                                // print("starting next cell speed is " + symbols[start_symbol_index + moving_cell+1].speed);
                     moving_cell++;
@@ -391,9 +390,9 @@ struct Row
                 if (symbol->pos_y > y_max)
                 {
                     symbol->_state = 1;
-                    symbol->pos_y = std::floor(ypos);
-                    symbol->speed = 1 + random(0,1);
-                    int g = random(0, number_of_glyphs - 1);
+                    symbol->pos_y = ypos;
+                    symbol->speed = 1 + frandom(0,1);
+                    int g = frandom(0, number_of_glyphs - 1);
                     symbol->id_glyph = g % 2 == 0 ? g : g + 1;
                     symbol->blending = 0.0f;
                 }
@@ -436,7 +435,7 @@ struct Row
 
             }
             // on est sur la première, on lui transmet le contenu de la dernière et on réinitialise la dernière
-            int glyph = random(0, number_of_glyphs - 1);
+            uint glyph = urandom(0, number_of_glyphs - 1);
             symbols[start_symbol_index].id_glyph = glyph % 2 == 0 ? glyph : glyph + 1;
             // on place son ancien contenu sur la première
 
@@ -503,8 +502,8 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
         row->m_time_init = 0;
         row->m_timer_init = 0; // à l'init on les présente sans tarder
         row->m_time_update = 0;
-        row->m_timer_update =(uint8_t) ( 5 +   random(10,20) );
-        row->speed = 1+ random(0,5);
+        row->m_timer_update =(uint8_t) ( 5 +   frandom(10,20) );
+        row->speed = 1+ frandom(0,0.25);
         row->ypos = ordonnee;
         if (abscisse + delta > right_most)//indexPlane > numberofMaxLinesPerPlane - 1 || abscisse + _delta  > right_most )
         {
@@ -523,7 +522,7 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
         	Symbol *symbol =  symbols + symbole_indice;
             symbol->color = color;
 
-            glyph_id = random(0, number_of_glyphs - 1);
+            glyph_id = frandom(0, number_of_glyphs - 1);
             symbol->id_glyph = ( glyph_id % 2 == 0 ? glyph_id : glyph_id+1);
             symbol->speed = 0;
             symbol->pos_x = (int) abscisse;
@@ -590,7 +589,7 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
             }
             else
             {
-                row->Update();
+                row->update();
                 if (row->m_activeCels == 0)
                 {
                     m_activerows--;
