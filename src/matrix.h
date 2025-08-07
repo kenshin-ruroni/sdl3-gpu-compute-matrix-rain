@@ -382,7 +382,7 @@ struct Row
                 {
                     symbol->_state = 1;
                     symbol->pos_y = up_most;
-                    symbol->speed = frandom(0.25,1.75);
+                    symbol->speed = frandom(0.05,0.5);
                     int id_glyph = urandom(0, number_of_glyphs - 2);
                     symbol->id_glyph = id_glyph % 2 == 0 ? id_glyph : id_glyph + 1;
                     symbol->alpha = 0.0f;

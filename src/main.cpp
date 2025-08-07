@@ -120,7 +120,7 @@ int main() {
 
 	SDL_AddEventWatch(AppLifecycleWatcher, NULL);
 
-	Uint32 w = 1200,h = w*(1080./1920.);
+	Uint32 w = 1800,h = w*(1080./1920.);
 
 	*glyphs_size =glyph_pixel_size;
 
