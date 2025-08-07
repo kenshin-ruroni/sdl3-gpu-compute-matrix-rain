@@ -33,7 +33,7 @@
 
  SDL_GPUTransferBuffer *symbols_gpu_transfer_buffer;
 
- int glyph_pixel_size = 3;
+ int glyph_pixel_size = 2;
 
 int glyph_size = glyph_pixel_size * 8; // glyph size in pixels
 

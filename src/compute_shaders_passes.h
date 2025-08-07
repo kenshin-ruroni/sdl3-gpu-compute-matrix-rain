@@ -16,7 +16,7 @@ extern SDL_GPUBuffer * glyphs_compute_buffer;
 extern int glyph_pixel_size;
 
 float teinte[4] = {1.0,1.0,1,1.0};
-float glyphs_color[4] = {1,1,1.0};
+float glyphs_color[4] = {1,1,1,1};
 float glyphs_size[4] = {glyph_pixel_size,glyph_pixel_size,0,0};
 
 inline void process_first_compute_pass(uint32_t &w,uint32_t &h,SDL_GPUCommandBuffer* cmdbuf){

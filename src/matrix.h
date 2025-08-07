@@ -17,7 +17,7 @@ static uint32_t number_of_glyphs = 2 * 177;
 
 static uint32_t glyphs_size_in_bytes = number_of_glyphs * sizeof(uint32_t);
 
-static size_t delta = 1;
+static size_t delta = 0;
 static size_t numberofMaxRows = 1000;
 static size_t lineMaxLength = 1000;
 static size_t number_of_symbols = 1000;
@@ -292,7 +292,7 @@ struct Row
 
             m_lineLength = line_length_max;
 
-            speed = frandom(1,2);
+            speed = frandom(0.5,0.75);
 
             moving_cell = 0;
 
@@ -382,7 +382,7 @@ struct Row
                 {
                     symbol->_state = 1;
                     symbol->pos_y = up_most;
-                    symbol->speed = frandom(1,1.5);
+                    symbol->speed = frandom(0.25,1.75);
                     int id_glyph = urandom(0, number_of_glyphs - 2);
                     symbol->id_glyph = id_glyph % 2 == 0 ? id_glyph : id_glyph + 1;
                     symbol->alpha = 0.0f;
