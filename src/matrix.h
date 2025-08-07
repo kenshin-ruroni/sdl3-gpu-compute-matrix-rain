@@ -17,7 +17,7 @@ static uint32_t number_of_glyphs = 2 * 177;
 
 static uint32_t glyphs_size_in_bytes = number_of_glyphs * sizeof(uint32_t);
 
-static size_t delta = 10;
+static size_t delta = 1;
 static size_t numberofMaxRows = 1000;
 static size_t lineMaxLength = 1000;
 static size_t number_of_symbols = 1000;
@@ -307,9 +307,13 @@ struct Row
                 if (i == 0)
                 {
                     symbol->speed = speed;
+                    symbol->visible = 1;
                 }
                 else
+                {
                     symbol->speed = 0;
+                    symbol->visible = 0;
+                }
                 uint glyph_id = urandom(0, number_of_glyphs - 2);
                 symbol->id_glyph = glyph_id % 2 == 0 ? glyph_id : glyph_id + 1;
                 symbol->_state = 1;
@@ -356,7 +360,7 @@ struct Row
             Symbol *next_symbol = symbol +1;
             if (moving_cell < m_lineLength - 1) // il y a encore du boulot pour initialiser la ligne
             {
-            	printf(" %f  %f  \n", symbol->pos_y,next_symbol->pos_y);
+            	//printf(" %f  %f  \n", symbol->pos_y,next_symbol->pos_y);
                 if (symbol->pos_y >= next_symbol->pos_y + glyph_size)
                 {
                     next_symbol->speed = symbol->speed;
