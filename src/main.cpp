@@ -5,7 +5,7 @@
 // Copyright   : Your copyright notice
 // Description : Hello World in C++, Ansi-style
 //============================================================================
-
+#include <chrono>
 #include <iostream>
 // Library effective with Linux
 #include <unistd.h>
@@ -33,8 +33,9 @@
 
  SDL_GPUTransferBuffer *symbols_gpu_transfer_buffer;
 
+ int glyph_pixel_size = 3;
 
-int glyph_size = 4; // glyph size in pixels
+int glyph_size = glyph_pixel_size * 8; // glyph size in pixels
 
 
  inline void upload_symbols_to_gpu(Context* context,SDL_GPUCommandBuffer* cmdbuf){
@@ -121,7 +122,7 @@ int main() {
 
 	Uint32 w = 1200,h = w*(1080./1920.);
 
-	*glyphs_size =glyph_size;
+	*glyphs_size =glyph_pixel_size;
 
 	initialize_matrix((int)w,(int)h);
 
@@ -327,7 +328,12 @@ int main() {
 				quit = true;
 			}
 		}
+		auto start = std::chrono::high_resolution_clock::now();
 		render_matrix(&context);
+		auto end = std::chrono::high_resolution_clock::now();
+		auto elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+		auto fps =1e6/ elapsed_time.count();
+		printf("fps %f elapsed time %u \n",fps,elapsed_time.count());
 	}
 
 }
