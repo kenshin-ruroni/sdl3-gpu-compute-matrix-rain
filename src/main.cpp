@@ -33,18 +33,18 @@
 
  SDL_GPUTransferBuffer *symbols_gpu_transfer_buffer;
 
- int glyph_pixel_size = 3;
+ int glyph_pixel_size = 2;
 
 int glyph_size = glyph_pixel_size * 8; // glyph size in pixels
 
 
  inline void upload_symbols_to_gpu(Context* context,SDL_GPUCommandBuffer* cmdbuf){
- 	//SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(context->device);
+
  	SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(cmdbuf);
  	SDL_gpu_copy_data_to_gpu_vram(symbols_size_in_bytes,(void *)symbols,context,symbols_gpu_transfer_buffer);
  	SDL_gpu_upload_gpu_buffer(copyPass,symbols_size_in_bytes,symbols_compute_buffer,symbols_gpu_transfer_buffer);
  	SDL_EndGPUCopyPass(copyPass);
- 	//SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
+
  }
 
  inline int render_matrix(Context* context)
@@ -126,7 +126,7 @@ int main() {
 
 	initialize_matrix((int)w,(int)h);
 
-	int r = SDL_gpu_create_context(w,h,&context,SDL_WINDOW_RESIZABLE,"matrix rain");
+	int r = SDL_gpu_create_context(w,h,&context,SDL_WINDOW_RESIZABLE,"SdL gPu MaTrIx RaIn");
 
 	// gpu buffers to store glyphs and symbols on GPU device
 	SDL_GPUBufferCreateInfo symbols_buffer_info ;
@@ -188,9 +188,9 @@ int main() {
 
 		SDL_GPUSamplerCreateInfo image_sampler_info =
 		{
-			.min_filter = SDL_GPU_FILTER_NEAREST,
-			.mag_filter = SDL_GPU_FILTER_NEAREST,
-			.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+			.min_filter = SDL_GPU_FILTER_LINEAR,
+			.mag_filter = SDL_GPU_FILTER_LINEAR,
+			.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
 			.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
 			.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
 			.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
@@ -328,12 +328,12 @@ int main() {
 				quit = true;
 			}
 		}
-		auto start = std::chrono::high_resolution_clock::now();
+		//auto start = std::chrono::high_resolution_clock::now();
 		render_matrix(&context);
-		auto end = std::chrono::high_resolution_clock::now();
-		auto elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-		auto fps =1e6/ elapsed_time.count();
-		printf("fps %f elapsed time %u \n",fps,elapsed_time.count());
+		//auto end = std::chrono::high_resolution_clock::now();
+		//auto elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+		//auto fps =1e6/ elapsed_time.count();
+		//printf("fps %f elapsed time %u \n",fps,elapsed_time.count());
 	}
 
 }

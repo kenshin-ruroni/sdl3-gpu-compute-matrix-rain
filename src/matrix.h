@@ -17,7 +17,7 @@ static uint32_t number_of_glyphs = 2 * 177;
 
 static uint32_t glyphs_size_in_bytes = number_of_glyphs * sizeof(uint32_t);
 
-static size_t delta = 1;
+static size_t delta = 10;
 static size_t numberofMaxRows = 1000;
 static size_t lineMaxLength = 1000;
 static size_t number_of_symbols = 1000;
@@ -40,7 +40,7 @@ struct Symbol
 	 float pos_x;
 	 float pos_y;
 	 int id_glyph;
-	 float blending;
+	 float alpha;
 	 float speed;
 	 uint32_t color;
 };
@@ -246,7 +246,7 @@ uint urandom(uint min, uint max){
 struct Row
 {
 
-         float z;
+
          uint32_t m_lineLength;
 
          uint32_t id;
@@ -331,9 +331,9 @@ struct Row
                          symbol->pos_y += symbol->speed;
                          if (symbol->visible == 1)
                          {
-                             if (symbol->blending < 1.0f)
+                             if (symbol->alpha < 1.0f)
                              {
-                                 symbol->blending += 0.01f;
+                                 symbol->alpha += 0.01f;
                              }
                          }
                          break;
@@ -381,7 +381,7 @@ struct Row
                     symbol->speed = frandom(1,1.5);
                     int id_glyph = urandom(0, number_of_glyphs - 2);
                     symbol->id_glyph = id_glyph % 2 == 0 ? id_glyph : id_glyph + 1;
-                    symbol->blending = 0.0f;
+                    symbol->alpha = 0.0f;
                 }
             }
 
@@ -447,9 +447,9 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
 
     rows = new Row[numberofMaxRows];
 
-    right_most = w - glyph_size - delta;
-    up_most = -glyph_size;
-    y_max = h + glyph_size;
+    right_most = w - glyph_size ;
+    up_most = -4* glyph_size;
+    y_max = h +  4 * glyph_size;
 
     int abscisse = 0;
     int ordonnee = up_most;
@@ -480,8 +480,8 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
         row->m_time_init = 0;
         row->m_timer_init = 0; // à l'init on les présente sans tarder
         row->m_time_update = 0;
-        row->m_timer_update =(uint8_t) ( urandom(1,10) );
-        row->speed = frandom(1,1);
+        row->m_timer_update =(uint8_t) ( urandom(5,10) );
+        row->speed = urandom(1,1);
         if (abscisse  > right_most)
         {
             abscisse = 0;
@@ -522,7 +522,7 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
             symbol ++; // on passe à la cell suivante
 
         }
-        abscisse += glyph_size  + delta;
+        abscisse += glyph_size + delta;
         ordonnee = up_most;
     }
 }
@@ -532,7 +532,7 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
         // on place dans chaque cellule l'indice (0-55) qui correspond à l' image d'une lettre verte ou blanche dnas les buffers de texture
 
         numberofMaxRows = w / ( glyph_size + delta) ;
-        lineMaxLength =  h / (glyph_size);
+        lineMaxLength =  h / glyph_size;
 
         number_of_symbols = numberofMaxRows * lineMaxLength;
         symbols_size_in_bytes = number_of_symbols*sizeof(Symbol);
