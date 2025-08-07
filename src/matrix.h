@@ -17,7 +17,7 @@ static uint32_t number_of_glyphs = 2 * 177;
 
 static uint32_t glyphs_size_in_bytes = number_of_glyphs * sizeof(uint32_t);
 
-static size_t delta = 1;
+static size_t delta = 8;
 static size_t numberofMaxRows = 1000;
 static size_t lineMaxLength = 1000;
 static size_t number_of_symbols = 1000;
@@ -31,6 +31,7 @@ static int m_activerows;
 static int m_proba_Active;
 static Row *rows;
 
+extern int glyph_size;
 
 struct Symbol
 {
@@ -231,13 +232,13 @@ static uint8_t font8x8[177][8] =
 
 
 float frandom(float min, float max){
-	srand (time(NULL));
+
 	float r = (float)rand()/(float)RAND_MAX;
 	return min + (max-min)*r;
 }
 
 uint urandom(uint min, uint max){
-	srand (time(NULL));
+
 	return min + rand()%max;
 }
 
@@ -252,7 +253,7 @@ struct Row
 
          float speed;
          uint8_t m_init;
-         uint32_t m_lineLengthMax;
+         uint32_t line_length_max;
 
          int _proba_isActive;
 
@@ -292,7 +293,7 @@ struct Row
 
             m_timer_init = (uint8_t)(urandom(10,30) & 0XFF);
 
-            m_lineLength = m_lineLengthMax;
+            m_lineLength = line_length_max;
 
             speed = frandom(1,2);
 
@@ -364,17 +365,10 @@ struct Row
 
             if (moving_cell < m_lineLength - 1) // il y a encore du boulot pour initialiser la ligne
             {
-
-
-                // print(" current pos y " + symbols[start_symbol_index + moving_cell].pos_y + "  next pos y " + symbols[start_symbol_index + moving_cell+1].pos_y);
-
-                //if (symbol->pos_y < (symbol+ 1)->pos_y - 8)
-                if (symbol->pos_y > (symbol+ 1)->pos_y + 16)
+                if (symbol->pos_y > (symbol+ 1)->pos_y + glyph_size)
                 {
-                    // print("starting next cell speed was " + symbols[start_symbol_index + moving_cell+1].speed);
                     (symbol + 1)->speed = symbol->speed;
                     (symbol + 1)->visible = 1; // cell devient visible
-                    // print("starting next cell speed is " + symbols[start_symbol_index + moving_cell+1].speed);
                     moving_cell++;
                 }
             }
@@ -392,9 +386,9 @@ struct Row
                 {
                     symbol->_state = 1;
                     symbol->pos_y = ypos;
-                    symbol->speed = frandom(1,2);
-                    int g = urandom(0, number_of_glyphs - 2);
-                    symbol->id_glyph = g % 2 == 0 ? g : g + 1;
+                    symbol->speed = frandom(1,1.5);
+                    int id_glyph = urandom(0, number_of_glyphs - 2);
+                    symbol->id_glyph = id_glyph % 2 == 0 ? id_glyph : id_glyph + 1;
                     symbol->blending = 0.0f;
                 }
             }
@@ -415,9 +409,9 @@ struct Row
 
             int v = 0;
             int v_tmp = 0;
-            for (uint32_t i = 0; i < m_lineLengthMax; i++)
+            for (uint32_t i = 0; i < line_length_max; i++)
             {
-            	Symbol *symbol = symbols+start_symbol_index + i;
+            	symbol = symbols+start_symbol_index + i;
                 if (i > 0)
                 {
                     v_tmp = symbol->id_glyph; // on sauve le contenu actuel
@@ -431,16 +425,9 @@ struct Row
                     }
                     v = v_tmp;
                 }
-
-                //  print("symbol " + start_symbol_index + i + " glyph " + symbols[start_symbol_index + i].id_glyph+" pos x "+ symbols[start_symbol_index + i].pos_x+" "+ symbols[start_symbol_index + i].pos_y);
-
             }
-            // on est sur la première, on lui transmet le contenu de la dernière et on réinitialise la dernière
-            uint glyph = urandom(0, number_of_glyphs - 2);
-            symbols[start_symbol_index].id_glyph = glyph % 2 == 0 ? glyph : glyph + 1;
-            // on place son ancien contenu sur la première
-
-
+            uint id_glyph = urandom(0, number_of_glyphs - 2);
+            symbols[start_symbol_index].id_glyph = id_glyph % 2 == 0 ? id_glyph : id_glyph + 1;
         }
 };
 
@@ -464,13 +451,14 @@ inline uint32_t * ComputeGlyphsDataToHighAndLowInt()
 inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
 {
 
+	srand (time(NULL));
 
     rows = new Row[numberofMaxRows];
 
     z_max = 0.0f;
-    right_most = w;
-    up_most = -18; // h + 18 ;
-    y_max = h + 18;
+    right_most = w - glyph_size - delta;
+    up_most = -2 * glyph_size;
+    y_max = h + glyph_size;
 
     float abscisse = 0;
     float ordonnee = up_most;
@@ -484,12 +472,14 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
 
 
 
-    int symbole_indice = 0;
+    int symbol_index = 0;
+
+    Row *row ;
 
     for (size_t i = 0; i < numberofMaxRows; i++)
     {
 
-        Row *row = rows+i;
+        row = rows+i;
         row->id = i;
         row->start_symbol_index = i * lineMaxLength ;
        // if ((active_line = (Random.Range(0,100) < m_proba_Active)))
@@ -499,16 +489,19 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
 
         row->_proba_isActive = m_proba_Active;
         row->m_activeCels = 0;
-        row->m_lineLengthMax = lineMaxLength;
+        row->line_length_max = lineMaxLength;
         row->m_time_init = 0;
         row->m_timer_init = 0; // à l'init on les présente sans tarder
         row->m_time_update = 0;
         row->m_timer_update =(uint8_t) ( urandom(1,5) );
-        row->speed = frandom(1,2);
+        row->speed = urandom(1,10);
+
+        printf("row id  speed  %i %f \n",i,row->speed);
+
         row->ypos = ordonnee;
-        if (abscisse + delta > right_most)//indexPlane > numberofMaxLinesPerPlane - 1 || abscisse + _delta  > right_most )
+        if (abscisse  > right_most)
         {
-            abscisse = 8;
+            abscisse = 0;
         }
         // on crée une ligne
         row->m_lineLength = lineMaxLength;
@@ -520,7 +513,7 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
         int glyph_id;
         for (int k = 0; k < lineMaxLength; k++)
         {
-        	Symbol *symbol =  symbols + symbole_indice;
+        	Symbol *symbol =  symbols + symbol_index;
             symbol->color = color;
 
             glyph_id = urandom(0, number_of_glyphs - 2);
@@ -545,12 +538,12 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
             {
                 symbol->_state = 0;
             }
-            //ordonnee += _delta;
-            symbole_indice ++; // on passe à la cell suivante
+            ordonnee += glyph_size;
+            symbol_index ++; // on passe à la cell suivante
 
         }
-        abscisse += 32; //  * (10.f + float(rand() % 5000) * 0.1f );
-
+        abscisse += glyph_size  + delta; //  * (10.f + float(rand() % 5000) * 0.1f );
+        ordonnee = up_most;
     }
 }
 
@@ -558,8 +551,8 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
     {
         // on place dans chaque cellule l'indice (0-55) qui correspond à l' image d'une lettre verte ou blanche dnas les buffers de texture
 
-        numberofMaxRows = w / 8 + 3;
-        lineMaxLength = 1 * h / 8;
+        numberofMaxRows = w / glyph_size ;
+        lineMaxLength = 5; // h / glyph_size;
 
         number_of_symbols = numberofMaxRows * lineMaxLength;
         symbols_size_in_bytes = number_of_symbols*sizeof(Symbol);

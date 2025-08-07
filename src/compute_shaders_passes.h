@@ -17,6 +17,7 @@ extern SDL_GPUBuffer * glyphs_compute_buffer;
 
 float teinte[4] = {0.9,0.9,0.6,1.0};
 float glyphs_color[4] = {0.7,0.5,0.8,1.0};
+float glyphs_size[4] = {8,8,0,0};
 
 inline void process_first_compute_pass(uint32_t &w,uint32_t &h,SDL_GPUCommandBuffer* cmdbuf){
 
@@ -73,10 +74,10 @@ inline void process_first_compute_pass(uint32_t &w,uint32_t &h,SDL_GPUCommandBuf
 
  }
 
-	float u[8] =
+	float u[12] =
 	{
 		teinte[0],teinte[1],teinte[2],teinte[3],
-		glyphs_color[0],glyphs_color[1],glyphs_color[2],glyphs_color[3]
+		glyphs_color[0],glyphs_color[1],glyphs_color[2],glyphs_color[3],8,8,0,0
 	};
 
  inline void process_second_compute_pass(uint32_t &w,uint32_t &h,SDL_GPUCommandBuffer* cmdbuf){
@@ -155,7 +156,10 @@ inline void process_first_compute_pass(uint32_t &w,uint32_t &h,SDL_GPUCommandBuf
 	 				textures,
 	      			2
 	      		);
-	      SDL_PushGPUComputeUniformData(cmdbuf, 0, u, sizeof(float)*8);
+	      memcpy(u,teinte,4*sizeof(float));
+	      memcpy(u+4,glyphs_color,4*sizeof(float));
+	      memcpy(u+8,glyphs_size,4*sizeof(float));
+	      SDL_PushGPUComputeUniformData(cmdbuf, 0, u, sizeof(float)*12);
 	      SDL_DispatchGPUCompute(computePass, number_of_symbols/32 ,1, 1);
 
 	      SDL_EndGPUComputePass(computePass);
