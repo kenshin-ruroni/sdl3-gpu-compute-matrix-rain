@@ -341,13 +341,13 @@ struct Row
                     		 symbol->count %= symbol->max_count;
 							 if ( symbol->count == 0 )
 							 {
-								 int p = urandom(0,100);
-								 if ( p < 45 )
+								 int p = urandom(0,1000);
+								 if ( p < 15 )
 								 {
 									 symbol->speed *= 1.01f;
 								 }else
 								 {
-									 symbol->speed *= 0.9999f;
+									 symbol->speed *= 0.9975f;
 									 symbol->speed = std::max(0.1f,symbol->speed);
 								 }
 
@@ -418,7 +418,7 @@ struct Row
                     symbol->id_glyph = id_glyph % 2 == 0 ? id_glyph : id_glyph + 1;
                     symbol->alpha = 0.0f;
                     uint p = urandom(0,1000);
-                    if ( p < 5){
+                    if ( p < 50){
                     	symbol->flare_color =  (0XFF << 16) | 0XFF; // green
                     }
                 }
