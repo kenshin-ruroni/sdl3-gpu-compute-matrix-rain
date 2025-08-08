@@ -390,3 +390,25 @@ inline void SDL_gpu_upload_gpu_buffer(SDL_GPUCopyPass* copyPass,uint32_t buffer_
 	);
 }
 
+inline void SDL_gpu_upload_gpu_texture_to_gpu(SDL_GPUCopyPass* copyPass,uint32_t texture_region_depth,uint32_t texture_width,size_t texture_height,SDL_GPUTexture* image_texture, SDL_GPUTransferBuffer* texture_image_transfer_buffer){
+
+	SDL_GPUTextureTransferInfo texture_transfer_info = {
+		.transfer_buffer = texture_image_transfer_buffer,
+		.offset = 0 /* Zeros out the rest */
+	};
+	SDL_GPUTextureRegion texture_region = {
+	.texture = image_texture,
+	.w = texture_width,
+	.h = texture_height,
+	.d = texture_region_depth
+	};
+
+	// upload image data
+	SDL_UploadToGPUTexture(
+			copyPass,
+			&texture_transfer_info ,
+			&texture_region,
+			false
+		);
+}
+

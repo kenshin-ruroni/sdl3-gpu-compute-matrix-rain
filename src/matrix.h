@@ -42,7 +42,7 @@ struct Symbol
 	int id_glyph;
 	float alpha;
 	float speed;
-	uint color;
+	float flare_color;
 	uint count;
 	uint max_count;
 };
@@ -342,16 +342,20 @@ struct Row
 							 if ( symbol->count == 0 )
 							 {
 								 int p = urandom(0,100);
-								 if ( p < 55 )
+								 if ( p < 45 )
 								 {
-									 symbol->speed *= 1.0001f;
+									 symbol->speed *= 1.01f;
 								 }else
 								 {
 									 symbol->speed *= 0.9999f;
-									 symbol->speed = std::max(0.25f,symbol->speed);
+									 symbol->speed = std::max(0.1f,symbol->speed);
 								 }
 
 								 symbol->pos_y += symbol->speed;
+								 if ( symbol->flare_color > 0)
+								 {
+									 symbol->flare_color *= 0.995f;
+								 }
 							 }
                     	 }
                          if (symbol->visible == 1)
@@ -413,6 +417,10 @@ struct Row
                     int id_glyph = urandom(0, number_of_glyphs - 2);
                     symbol->id_glyph = id_glyph % 2 == 0 ? id_glyph : id_glyph + 1;
                     symbol->alpha = 0.0f;
+                    uint p = urandom(0,1000);
+                    if ( p < 5){
+                    	symbol->flare_color =  (0XFF << 16) | 0XFF; // green
+                    }
                 }
             }
 
@@ -521,7 +529,6 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
         row->m_lineLength = lineMaxLength;
         ordonnee = up_most;
 
-        uint color = 0XFF << 16 | 0XFF; // GREEN
         row->moving_cell = 0;
         int glyph_id;
 
@@ -530,7 +537,7 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
         for (int k = 0; k < lineMaxLength; k++)
         {
 
-            symbol->color = color;
+        	symbol->flare_color = 0; // white
 
             glyph_id = urandom(0, number_of_glyphs - 2);
             symbol->id_glyph = ( glyph_id % 2 == 0 ? glyph_id : glyph_id+1);
@@ -540,6 +547,7 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
 
             if (k == 0)
             {
+            	symbol->flare_color = (0XFF << 16) | 0XFF; // green
                 symbol->speed = row->speed;
                 symbol->count = 0;
                 symbol->max_count = max_count;
@@ -568,7 +576,7 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
         // on place dans chaque cellule l'indice (0-55) qui correspond à l' image d'une lettre verte ou blanche dnas les buffers de texture
 
         numberofMaxRows = w / ( glyph_size + delta) ;
-        lineMaxLength =  4 * h / glyph_size;
+        lineMaxLength =   0.5 * h / glyph_size;
 
         number_of_symbols = numberofMaxRows * lineMaxLength;
         symbols_size_in_bytes = number_of_symbols*sizeof(Symbol);

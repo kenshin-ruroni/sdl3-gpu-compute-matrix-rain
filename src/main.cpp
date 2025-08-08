@@ -205,7 +205,7 @@ int main() {
 		image_sampler = SDL_CreateGPUSampler(context.device, &image_sampler_info);
 
 	    // Set up texture data in order to transfer it to GPU device
-		SDL_GPUTransferBufferCreateInfo transfer_buffer_info =
+		SDL_GPUTransferBufferCreateInfo texture_image_transfer_buffer_info =
 		{
 			.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
 			.size = (Uint32) imageData->w * imageData->h * 4,
@@ -213,23 +213,31 @@ int main() {
 		};
 		SDL_GPUTransferBuffer* texture_image_transfer_buffer = SDL_CreateGPUTransferBuffer(
 			context.device,
-			&transfer_buffer_info
+			&texture_image_transfer_buffer_info
 		);
 
-		Uint8* textureTransferPtr = (Uint8 *) SDL_MapGPUTransferBuffer(
+		SDL_gpu_copy_data_to_gpu_vram((size_t) imageData->w * imageData->h * 4,(void *)imageData->pixels,&context,texture_image_transfer_buffer);
+
+
+		/*Uint8* textureTransferPtr = (Uint8 *) SDL_MapGPUTransferBuffer(
 			context.device,
 			texture_image_transfer_buffer,
 			false
 		);
 		SDL_memcpy(textureTransferPtr, imageData->pixels, imageData->w * imageData->h * 4);
 		SDL_UnmapGPUTransferBuffer(context.device, texture_image_transfer_buffer);
+		 */
 
 		// Upload the image data to the GPU resources
 		SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(context.device);
 		SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
+
+		SDL_gpu_upload_gpu_texture_to_gpu(copyPass,1,imageData->w,imageData->h,image_texture,texture_image_transfer_buffer);
+
+		/*
 		SDL_GPUTextureTransferInfo texture_transfer_info = {
 			.transfer_buffer = texture_image_transfer_buffer,
-			.offset = 0, /* Zeros out the rest */
+			.offset = 0,
 		};
 		SDL_GPUTextureRegion texture_region = {
 				.texture = image_texture,
@@ -244,6 +252,7 @@ int main() {
 				&texture_region,
 				false
 			);
+			*/
 
 		// upload glyphs and symbols to GPU device
 
