@@ -33,9 +33,10 @@
 
  SDL_GPUTransferBuffer *symbols_gpu_transfer_buffer;
 
- int glyph_pixel_size = 1;
+ int glyph_pixel_size = 2;
+ int font_size = 8;
 
-int glyph_size = glyph_pixel_size * 8; // glyph size in pixels
+int glyph_size = glyph_pixel_size * font_size; // glyph size in pixels
 
 
  inline void upload_symbols_to_gpu(Context* context,SDL_GPUCommandBuffer* cmdbuf){
@@ -47,7 +48,7 @@ int glyph_size = glyph_pixel_size * 8; // glyph size in pixels
 
  }
 
- inline int render_matrix(Context* context)
+ inline int render_matrix(Context* context,bool update)
  {
      SDL_GPUCommandBuffer* cmdbuf = SDL_AcquireGPUCommandBuffer(context->device);
      if (cmdbuf == NULL)
@@ -97,9 +98,15 @@ int glyph_size = glyph_pixel_size * 8; // glyph size in pixels
          );
      }
 
-	 update_matrix();
-	 upload_symbols_to_gpu(context,cmdbuf);
-     SDL_SubmitGPUCommandBuffer(cmdbuf);
+    // if ( update)
+     {
+    	 update_matrix();
+    	 upload_symbols_to_gpu(context,cmdbuf);
+     }
+
+	 SDL_SubmitGPUCommandBuffer(cmdbuf);
+
+
 
      return 0;
  }
@@ -319,6 +326,7 @@ int main() {
         );
 
 	bool quit = false;
+	bool update = true;
 	while(!quit){
 		SDL_Event evt;
 		while (SDL_PollEvent(&evt))
@@ -327,9 +335,21 @@ int main() {
 			{
 				quit = true;
 			}
+			/*if (evt.type == SDL_EVENT_KEY_DOWN)
+			{
+				update = false;
+			}
+
+			if (evt.type == SDL_EVENT_KEY_UP)
+			{
+				update = true;
+			}*/
+
 		}
+
+		render_matrix(&context,true);
 		//auto start = std::chrono::high_resolution_clock::now();
-		render_matrix(&context);
+
 		//auto end = std::chrono::high_resolution_clock::now();
 		//auto elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 		//auto fps =1e6/ elapsed_time.count();
