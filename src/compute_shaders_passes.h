@@ -16,7 +16,7 @@ extern SDL_GPUBuffer * glyphs_compute_buffer;
 extern int glyph_pixel_size;
 extern int font_size;
 
-float teinte[4] = {1,1,1,1};
+float teinte[4] = {1,0.75,0.75,1};
 float glyphs_color[4] = {1,1.0,1.0,1};
 float glyphs_size[4] = {glyph_pixel_size,font_size,0,0};
 

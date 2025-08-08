@@ -408,8 +408,8 @@ struct Row
                     symbol->_state = 1;
                     symbol->pos_y = up_most;
                     symbol->count = 0;
-                    symbol->speed = frandom(1,10);
-                    symbol->max_count = urandom(1,5);
+                    symbol->speed = frandom(2,6);
+                    symbol->max_count = urandom(1,10);
                     int id_glyph = urandom(0, number_of_glyphs - 2);
                     symbol->id_glyph = id_glyph % 2 == 0 ? id_glyph : id_glyph + 1;
                     symbol->alpha = 0.0f;
@@ -512,7 +512,7 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
         row->m_timer_init = 0; // à l'init on les présente sans tarder
         row->m_time_update = 0;
         row->m_timer_update =(uint8_t) ( urandom(5,15) );
-        row->speed = frandom(3,5);
+        row->speed = frandom(10,20);
         if (abscisse  > right_most)
         {
             abscisse = 0;
@@ -568,7 +568,7 @@ inline void initialize_matrix_rows(int w, int h,int lineMaxLength)
         // on place dans chaque cellule l'indice (0-55) qui correspond à l' image d'une lettre verte ou blanche dnas les buffers de texture
 
         numberofMaxRows = w / ( glyph_size + delta) ;
-        lineMaxLength =  h / glyph_size;
+        lineMaxLength =  4 * h / glyph_size;
 
         number_of_symbols = numberofMaxRows * lineMaxLength;
         symbols_size_in_bytes = number_of_symbols*sizeof(Symbol);

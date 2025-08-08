@@ -9,3 +9,5 @@ compute shader sources are hot-compiled and  needs glslc https://github.com/goog
 ![Alt text]( crysis_rain16x16.png "crysis painted by rain at 16x16 raster resolution")
 
 ![Alt text]( crysis_rain32x32.png "crysis painted by rain at 32x32 raster resolution")
+
+![Alt text]( slightly_red_teinted_crisys8x8.png "slightly red teinted crysis painted by rain at 8x8 raster resolution")
