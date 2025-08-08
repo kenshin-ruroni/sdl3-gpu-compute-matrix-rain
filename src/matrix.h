@@ -342,19 +342,19 @@ struct Row
 							 if ( symbol->count == 0 )
 							 {
 								 int p = urandom(0,1000);
-								 if ( p < 15 )
+								 if ( p < 25 )
 								 {
-									 symbol->speed *= 1.01f;
+									 symbol->speed *= 1.001f;
 								 }else
 								 {
-									 symbol->speed *= 0.9975f;
-									 symbol->speed = std::max(0.1f,symbol->speed);
+									 symbol->speed *= 0.999f;
+									 symbol->speed = std::max(0.25f,symbol->speed);
 								 }
 
 								 symbol->pos_y += symbol->speed;
 								 if ( symbol->flare_color > 0)
 								 {
-									 symbol->flare_color *= 0.995f;
+									 symbol->flare_color *= 0.99f;
 								 }
 							 }
                     	 }
