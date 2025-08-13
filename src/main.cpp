@@ -30,6 +30,7 @@
  SDL_GPUTexture* write_texture;
  SDL_GPUBuffer * symbols_compute_buffer;
  SDL_GPUBuffer * glyphs_compute_buffer;
+ SDL_GPUBuffer * flare_kernel2d_compute_buffer;
 
  SDL_GPUTransferBuffer *symbols_gpu_transfer_buffer;
 
@@ -37,6 +38,7 @@
  int font_size = 8;
 
 int glyph_size = glyph_pixel_size * font_size; // glyph size in pixels
+uint32_t flare_data_size;
 
 
  inline void upload_symbols_to_gpu(Context* context,SDL_GPUCommandBuffer* cmdbuf){
@@ -115,46 +117,43 @@ int glyph_size = glyph_pixel_size * font_size; // glyph size in pixels
 
 int main() {
 
-	uint32_t *glyphs  = ComputeGlyphsDataToHighAndLowInt();
-
-
-	Context context = { 0 };
 	if (!SDL_Init(SDL_INIT_VIDEO))
 	{
 			SDL_Log("Failed to initialize SDL: %s", SDL_GetError());
 			return 1;
 	}
 
+	printf(" SDL version %i  %i\n",SDL_GetVersion(),SDL_VERSION);
+
+	Context context = { 0 };
+	Uint32 w = 1800,h = w*(1080./1920.);
+	int r = SDL_gpu_create_context(w,h,&context,SDL_WINDOW_RESIZABLE,"SdL gPu MaTrIx RaIn");
+
+	int number_of_drivers = SDL_GetNumGPUDrivers();
+
+
+	for (int i = 0; i < number_of_drivers;i++){
+		printf("found gpu driver '%s' \n",SDL_GetGPUDriver(i));
+	}
+	printf(" gpu driver name from gpu device '%s' \n",SDL_GetGPUDeviceDriver(context.device));
+
+
+	uint32_t *glyphs  = compute_glyphs_data();
+
+	// flare kernel2d data
+	float radius = glyph_size + 2 * 2;
+	kernel_2d_data *flare_kernel2d_data = compute_flare_kernel_2d_data( radius/std::sqrt(2),0.25f);
+	flare_data_size = radius*radius;
+	uint32_t flare_kernel2d_buffer_size_in_bytes = flare_data_size * sizeof(kernel_2d_data);
+
+
 	SDL_AddEventWatch(AppLifecycleWatcher, NULL);
 
-	Uint32 w = 1800,h = w*(1080./1920.);
+
 
 	*glyphs_size =glyph_pixel_size;
 
 	initialize_matrix((int)w,(int)h);
-
-	int r = SDL_gpu_create_context(w,h,&context,SDL_WINDOW_RESIZABLE,"SdL gPu MaTrIx RaIn");
-
-	// gpu buffers to store glyphs and symbols on GPU device
-	SDL_GPUBufferCreateInfo symbols_buffer_info ;
-	symbols_buffer_info.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
-	symbols_buffer_info.size = symbols_size_in_bytes;
-	symbols_buffer_info.props=0;
-
-	symbols_compute_buffer = SDL_CreateGPUBuffer(
-			context.device,
-			&symbols_buffer_info
-		);
-
-	SDL_GPUBufferCreateInfo glyphs_buffer_info;
-	glyphs_buffer_info.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ;
-	glyphs_buffer_info.size = glyphs_size_in_bytes;
-	glyphs_buffer_info.props=0;
-
-	glyphs_compute_buffer = SDL_CreateGPUBuffer(
-			context.device,
-			&glyphs_buffer_info
-		);
 
 	if ( r != 0 ){
 		exit(-1);
@@ -167,7 +166,7 @@ int main() {
 		return -1;
 	}
 
-	if ( imageData->w != w && imageData->h != h){
+	if ( (Uint32)imageData->w != w && (Uint32)imageData->h != h){
 		imageData = SDL_ScaleSurface(imageData,w,h,SDL_SCALEMODE_LINEAR);
 		IMG_SaveJPG(imageData,"./rescaled_crysis-2.jpg",100);
 	}
@@ -219,40 +218,11 @@ int main() {
 		SDL_gpu_copy_data_to_gpu_vram((size_t) imageData->w * imageData->h * 4,(void *)imageData->pixels,&context,texture_image_transfer_buffer);
 
 
-		/*Uint8* textureTransferPtr = (Uint8 *) SDL_MapGPUTransferBuffer(
-			context.device,
-			texture_image_transfer_buffer,
-			false
-		);
-		SDL_memcpy(textureTransferPtr, imageData->pixels, imageData->w * imageData->h * 4);
-		SDL_UnmapGPUTransferBuffer(context.device, texture_image_transfer_buffer);
-		 */
-
 		// Upload the image data to the GPU resources
 		SDL_GPUCommandBuffer* uploadCmdBuf = SDL_AcquireGPUCommandBuffer(context.device);
 		SDL_GPUCopyPass* copyPass = SDL_BeginGPUCopyPass(uploadCmdBuf);
 
 		SDL_gpu_upload_gpu_texture_to_gpu(copyPass,1,imageData->w,imageData->h,image_texture,texture_image_transfer_buffer);
-
-		/*
-		SDL_GPUTextureTransferInfo texture_transfer_info = {
-			.transfer_buffer = texture_image_transfer_buffer,
-			.offset = 0,
-		};
-		SDL_GPUTextureRegion texture_region = {
-				.texture = image_texture,
-				.w = (Uint32) imageData->w,
-				.h = (Uint32) imageData->h,
-				.d = 1
-		};
-		// upload image data
-		SDL_UploadToGPUTexture(
-				copyPass,
-				&texture_transfer_info ,
-				&texture_region,
-				false
-			);
-			*/
 
 		// upload glyphs and symbols to GPU device
 
@@ -263,12 +233,22 @@ int main() {
 		SDL_gpu_copy_data_to_gpu_vram(glyphs_size_in_bytes,(void *)glyphs,&context,glyphs_gpu_transfer_buffer);
 		SDL_gpu_upload_gpu_buffer(copyPass,glyphs_size_in_bytes,glyphs_compute_buffer,glyphs_gpu_transfer_buffer);
 
+
 		// upload symbols to GPU VRAM
 		symbols_compute_buffer = SDL_gpu_create_gpu_buffer<Symbol>(number_of_symbols,&context,SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ);
 		symbols_gpu_transfer_buffer = SDL_gpu_acquire_gpu_transfer_buffer<Symbol>(symbols_size_in_bytes,&context);
 		// Transfer the data
 		SDL_gpu_copy_data_to_gpu_vram(symbols_size_in_bytes,(void *)symbols,&context,symbols_gpu_transfer_buffer);
 		SDL_gpu_upload_gpu_buffer(copyPass,symbols_size_in_bytes,symbols_compute_buffer,symbols_gpu_transfer_buffer);
+
+		// upload symbols to GPU VRAM
+		flare_kernel2d_compute_buffer = SDL_gpu_create_gpu_buffer<Symbol>(radius*radius,&context,SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ);
+		SDL_GPUTransferBuffer *flare_kernel2d_compute_transfer_buffer = SDL_gpu_acquire_gpu_transfer_buffer<Symbol>(symbols_size_in_bytes,&context);
+				// Transfer the data
+		SDL_gpu_copy_data_to_gpu_vram(flare_kernel2d_buffer_size_in_bytes,(void *)flare_kernel2d_data,&context,flare_kernel2d_compute_transfer_buffer);
+		SDL_gpu_upload_gpu_buffer(copyPass,flare_kernel2d_buffer_size_in_bytes,flare_kernel2d_compute_buffer,flare_kernel2d_compute_transfer_buffer);
+
+
 
 		SDL_EndGPUCopyPass(copyPass);
 		SDL_SubmitGPUCommandBuffer(uploadCmdBuf);
@@ -319,7 +299,7 @@ int main() {
 	compute_rasterize_symbols_pipeline_info.num_samplers = 1;
 	compute_rasterize_symbols_pipeline_info.num_readonly_storage_textures = 1;
 	compute_rasterize_symbols_pipeline_info.num_readwrite_storage_textures = 1;
-	compute_rasterize_symbols_pipeline_info.num_readonly_storage_buffers = 2;
+	compute_rasterize_symbols_pipeline_info.num_readonly_storage_buffers = 3;
 	compute_rasterize_symbols_pipeline_info.num_uniform_buffers = 1;
 	compute_rasterize_symbols_pipeline_info.threadcount_x = 8;
 	compute_rasterize_symbols_pipeline_info.threadcount_y = 1;

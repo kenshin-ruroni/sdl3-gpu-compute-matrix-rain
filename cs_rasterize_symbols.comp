@@ -1,3 +1,38 @@
+/*
+
+it should be noted from the SDL_gpu docs :
+
+https://wiki.libsdl.org/SDL3/SDL_CreateGPUComputePipeline
+
+
+For SPIR-V shaders, use the following resource sets:
+
+    0: Sampled textures, followed by read-only storage textures, followed by read-only storage buffers
+    1: Read-write storage textures, followed by read-write storage buffers
+    2: Uniform buffers
+
+For DXBC and DXIL shaders, use the following register order:
+
+    (t[n], space0): Sampled textures, followed by read-only storage textures, followed by read-only storage buffers
+    (u[n], space1): Read-write storage textures, followed by read-write storage buffers
+    (b[n], space2): Uniform buffers
+
+For MSL/metallib, use the following order:
+
+    [[buffer]]: Uniform buffers, followed by read-only storage buffers, followed by read-write storage buffers
+    [[texture]]: Sampled textures, followed by read-only storage textures, followed by read-write storage textures
+
+
+*/
+
+
+struct kernel_2d_data
+{
+	uint2 coord; // position 2D sur l'image
+	float value;
+};
+
+
 
 struct Symbol
 {
@@ -6,15 +41,20 @@ struct Symbol
 	int pos_x;
 	int pos_y;
 	int id_glyph;
-	float blending;
+	float alpha;
 	float speed;
-	uint color;
+	float flare_color;
+	uint count;
+	uint max_count;
 };
 
 
 Texture2D<float4> in_image: register(t0, space0);
+
 StructuredBuffer<uint> glyphs:register(t2, space0);
 StructuredBuffer<Symbol> symbols:register(t3, space0);
+StructuredBuffer<kernel_2d_data> flare_kernel2d:register(t4, space0);
+
 
 SamplerState in_image_sampler : register(s0, space0);
 
@@ -27,16 +67,16 @@ cbuffer UBO : register(b0, space2)
 {
     float4 teinte;
     float4 glyph_color;
+	float4 glyph_size;
 };
 
 
-void DrawPixel(uint2 id_in, float4 color, int size, float blending)
+void draw_pixel(uint2 id_in, float4 color, int size, float alpha)
 {
 
 	float w, h;
     in_image.GetDimensions(w, h);
-    float2 texcoord = (float2(id_in)) / float2(w, h);
-    float4 inPixel = in_image.SampleLevel(in_image_sampler, texcoord, 0);
+    
 	uint3 id;
 	for (int i = 0; i < size; i++)
 	{
@@ -44,39 +84,66 @@ void DrawPixel(uint2 id_in, float4 color, int size, float blending)
 		for (int j = 0; j < size; j++)
 		{
 			id.y = id_in.y + j;
-			float f = length(inPixel)*0.25;
-			out_image[id.xy] =   ( color *  inPixel * float4(teinte.xyz,1) ) ;
-			
-			//out_image[id.xy] =   float4(1,0,0,1) ;
+			out_image[id.xy] =color; // 0.5 * ( out_image[id.xy] + color  )  ; //max(  out_image[id.xy] , color * float4(1,1,1,alpha) )  ;// 
 		}
 	}
 }
 
-float4 ComputeAverageBackgroundColor(uint2 id_in, int size)
+float4 compute_max_color(uint2 id_in, int size)
 {
+	uint font_size = int( glyph_size.y );
 	uint2 id;
 	float4 color = float4(0, 0, 0, 1);
 
 	float w, h;
     in_image.GetDimensions(w, h);
-    float2 texcoord = (float2(id_in)) / float2(w, h);
-    float4 inPixel = in_image.SampleLevel(in_image_sampler, texcoord, 0);
 
-	for (int i = 0; i < size*8; i++)
+	float4 max_color = float4(-1,-1,-1,-1);;
+
+	for (int i = 0; i < font_size*size; i++)
 	{
 		id.x = id_in.x + i;
-		for (int j = 0; j < size*8; j++)
+		for (int j = 0; j < font_size*size; j++)
 		{
 			id.y = id_in.y + j;
-			color += inPixel;
+			float2 texcoord = float2(id) / float2(w, h);
+    		float4 inPixel = in_image.SampleLevel(in_image_sampler, texcoord, 0);
+			max_color = max(inPixel,max_color);
 		}
 	}
-	color /= (64*size*size);
-	return color;
+	
+	return max_color;
 }
 
-void DrawGlyph(uint2 pos, float blending, float4 color, int size,int glyph_low, int glyph_high)
+void draw_flare(uint2 pos, int size, float4 flare_color){
+
+	// nombre de data dans le kernel2d est glyph_size.z;
+	
+	uint kernel2d_size = (uint)glyph_size.z;
+	
+	uint kernel2d_row_size = (uint)sqrt(glyph_size.z);
+
+	uint coord_x,coord_y;
+
+	float4 color;
+
+	for (uint i = 0; i < kernel2d_size;i++){
+	
+		coord_y = i / kernel2d_row_size;
+		coord_x =  i - kernel2d_row_size * coord_y;
+		uint2 p;
+		p.x = pos.x+coord_x;
+		p.y = pos.y + coord_y;
+		color = flare_color + flare_kernel2d[i].value * float4(1,1,1,1);
+		draw_pixel(p, color, size, 1);
+	
+	}
+
+}
+
+void draw_glyph(bool flare, uint2 pos, float alpha, float4 color, int size,int glyph_low, int glyph_high)
 {
+	uint font_size = int( glyph_size.y );
 	uint mask = 1; // 2^32
 	// on va de la droite vers la gauche sur les data de glyph
 	uint2 id_out;
@@ -84,32 +151,33 @@ void DrawGlyph(uint2 pos, float blending, float4 color, int size,int glyph_low, 
 	id_out.x = pos.x;
 	id_out.y = pos.y;
 
-	//out_image[id_out.xy] = float4(1, 1, 0, blending);
-
 	float w, h;
     in_image.GetDimensions(w, h);
-    float2 texcoord = (float2(pos)) / float2(w, h);
-    float4 inPixel = in_image.SampleLevel(in_image_sampler, texcoord, 0);
-
-	float f = length(inPixel)*0.25;
-	float4 background = float4(1., 0.9, 0.7, 1);// inPixel * float4(f *teinte.xyz, 1); // float4(0, 0, 0, 1); // in_image[pos];// *float4(0.5, 0.9, 0.5, 1);// float4(0.1, 0.8, 0.1, 1);
-	float4 foreground = inPixel; //float4(glyph_color.xyz, 1);// *background; // +(1 - blending)  *background;// +0.5* (inPixel * float4(teinte.xyz, 1)); // *float4(0.1, 1, 0.5, 1);
+    
+	
+	float c = 1. + 0.1 * cos(6.28 * 0.25 * pos.x*pos.y* pos.x*pos.y)* sin( 6.28 * 5 * pos.x*pos.y* pos.x*pos.y);
+	float4 foreground =color *  float4(glyph_color.xyz, alpha) ;// *background; // +(1 - alpha)  *background;// +0.5* (inPixel * float4(teinte.xyz, 1)); // *float4(0.1, 1, 0.5, 1);
 
 	for (int j = 0; j < 2; j++)
 	{
 		for (int i = 0; i < 32; i++) // 32 bits
 		{
-			if ( (ii & mask) == mask) // le bit est a 1
+			float2 texcoord = float2(id_out) / float2(w, h);
+    		float4 inPixel = in_image.SampleLevel(in_image_sampler, texcoord, 0);
+			if ( (ii & mask) == mask) // le bit est a 1 on affiche le foreground
 			{
-				DrawPixel(id_out, foreground, size, blending);
+				draw_pixel(id_out,  foreground, size, 1);
 			}
-			else
-			{
-				DrawPixel(id_out, background, size, blending);
-				//out_image[id_out.xy] = in_image[id_out.xy];
-			}
+			
+				if (flare)
+				{
+						//float2 texcoord = float2(id_out) / float2(w, h);
+	    				//float4 inPixel = in_image.SampleLevel(in_image_sampler, texcoord, 0);
+						draw_flare(id_out,size, float4(0,1,0,1));
+				}
+					
 			id_out.x += size;
-			if (fmod(i + 1, 8) == 0) // on change de ligne
+			if (fmod(i + 1, font_size) == 0) // on change de ligne
 			{
 				id_out.y += size;
 				id_out.x = pos.x;
@@ -117,6 +185,7 @@ void DrawGlyph(uint2 pos, float blending, float4 color, int size,int glyph_low, 
 			mask *= 2; // on shift vers la gauche
 		}
 
+		// on affiche la partie basse
 		id_out.x = pos.x;
 		ii = glyph_high;
 		mask = 1;
@@ -124,27 +193,54 @@ void DrawGlyph(uint2 pos, float blending, float4 color, int size,int glyph_low, 
 	}
 }
 
-
-
-[numthreads(8,1,1)]
+[numthreads(32,1,1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+	float w, h;
+    in_image.GetDimensions(w, h);
 	Symbol symbol = symbols[id.x];
-	
-	int id_ = 60;
-
-	int glyph_high =  glyphs[id_];// glyphs[symbol.id_glyph];
-	int glyph_low = glyphs[id_+1];  //glyphs[symbol.id_glyph + 1];
-	
 	uint2 pos;
 	pos.x = symbol.pos_x ;
 	pos.y = symbol.pos_y ;
-	
+
+	if ( pos.y <= 0 || pos.y >= h - 12 )
+	{
+		return;
+	}
+
+
+	int id_glyph = symbol.id_glyph; // 4;
+	int glyph_high =  glyphs[id_glyph];
+	int glyph_low = glyphs[id_glyph + 1];
+	float alpha = symbol.alpha;
+
+
+	if ( symbol.visible == 0 )
+	{
+		//out_image[pos.xy] = float4(0,0,0,0);
+		return;
+	}
+
 	// a partir du symbol color on recalcule son float4 correspondant
-	int size = 2;
-	float4 average = ComputeAverageBackgroundColor(pos, size);
-	float f = length(average)*0.25;
-	float4 color =   average * float4(teinte.xyz,1) ;// *average; // ComputeAverageBackgroundColor(pos, size);  //in_image[id.xy] ; // +  //
-	DrawGlyph(pos,1,color,size,glyph_low,glyph_high);
+	int size = int( glyph_size.x );
+	float4 max_color = compute_max_color(pos, size);
+	bool flare = false;
+	if ( symbol.flare_color != 0){
+		float r = float( (uint(symbol.flare_color) & 0xFF000000) >> 24)/255.;
+		float g = float( (uint(symbol.flare_color) & 0x00FF0000) >> 16)/255.;
+		float b = float( (uint(symbol.flare_color) & 0x0000FF00) >> 8)/255.;
+		float a = float( uint(symbol.flare_color) & 0x000000FF)/255.;
+		if ( g >0.25)
+		{
+			max_color += float4(0,1,0,0);
+			flare = true;
+		}
+	}
+
+    float2 texcoord = float2(pos) / float2(w, h);
+    float4 inPixel = in_image.SampleLevel(in_image_sampler, texcoord, 0);
+
+	float4 color =  max_color;// 0.5*(max_color+inPixel);   // *average; // compute_max_color(pos, size);  //in_image[id.xy] ; // +  //
+	draw_glyph(flare,pos,alpha,color,size,glyph_low,glyph_high);
 
 }

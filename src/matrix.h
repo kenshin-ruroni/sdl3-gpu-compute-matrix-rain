@@ -33,6 +33,12 @@ static Row *rows;
 
 extern int glyph_size;
 
+struct kernel_2d_data
+{
+	uint coord[2]; // position 2D sur l'image
+	float value;
+
+};
 struct Symbol
 {
 	int visible;
@@ -463,7 +469,28 @@ struct Row
 };
 
 
-inline uint32_t * ComputeGlyphsDataToHighAndLowInt()
+inline kernel_2d_data *compute_flare_kernel_2d_data(uint32_t radius, float alpha){
+
+	uint32_t values = radius * radius;
+
+	kernel_2d_data *flare_kernel2d = (kernel_2d_data *) malloc( values * sizeof(kernel_2d_data));
+
+	uint32_t coord_x,coord_y;
+	for (size_t i = 0; i < values;i ++){
+		coord_y = i / radius;
+		coord_x =  i - radius * coord_y;
+		float c = std::exp(-alpha * values);
+		*(flare_kernel2d + i) =
+		{
+			.coord = {coord_x,coord_y},
+			.value = std::max(0.0f,( std::exp(-alpha*(coord_x*coord_x+coord_y*coord_y)) - c )/( 1.0f - c ) )
+		};
+		//printf("x %u y %u %f \n",coord_x,coord_y,(flare_kernel2d + i)->value);
+	}
+	return flare_kernel2d;
+}
+
+inline uint32_t * compute_glyphs_data()
 {
 
     uint32_t *glyphs = (uint32_t *)malloc(glyphs_size_in_bytes);

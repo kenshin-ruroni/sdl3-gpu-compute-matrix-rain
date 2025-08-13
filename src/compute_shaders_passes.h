@@ -13,12 +13,15 @@ extern SDL_GPUTexture* write_texture;
 
 extern SDL_GPUBuffer * symbols_compute_buffer;
 extern SDL_GPUBuffer * glyphs_compute_buffer;
+extern SDL_GPUBuffer * flare_kernel2d_compute_buffer;
+
 extern int glyph_pixel_size;
 extern int font_size;
+extern uint32_t flare_data_size;
 
 float teinte[4] = {1,1.0,1.0,1};
 float glyphs_color[4] = {1,1.0,1.0,1};
-float glyphs_size[4] = {glyph_pixel_size,font_size,0,0};
+float glyphs_size[4] = {(float)glyph_pixel_size,(float)font_size,(float)flare_data_size,0};
 
 inline void process_first_compute_pass(uint32_t &w,uint32_t &h,SDL_GPUCommandBuffer* cmdbuf){
 
@@ -117,7 +120,8 @@ inline void process_first_compute_pass(uint32_t &w,uint32_t &h,SDL_GPUCommandBuf
 
 	      SDL_GPUBuffer *gpu_buffers[] = {
 	    	glyphs_compute_buffer,
-			symbols_compute_buffer
+			symbols_compute_buffer,
+			flare_kernel2d_compute_buffer
 	      };
 
 	      SDL_BindGPUComputeStorageBuffers(
@@ -125,7 +129,7 @@ inline void process_first_compute_pass(uint32_t &w,uint32_t &h,SDL_GPUCommandBuf
 	      			0,
 					gpu_buffers
 	      			,
-	      			2
+	      			3
 	      		);
 
 	      const char *error=SDL_GetError();
